@@ -17,6 +17,9 @@ from sqlalchemy import text as sa_text
 from .services.rag import embeddings
 
 settings = get_settings()
+# Application loggers report provider/model/latency/grounding decisions at INFO;
+# uvicorn only configures its own loggers, so the root level is set here.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -76,7 +79,10 @@ async def audit_middleware(request: Request, call_next):
         response = await call_next(request)
         return response
     finally:
-        if request.url.path.startswith("/api/") and request.url.path not in {"/api/docs", "/api/openapi.json"}:
+        # OPTIONS is a browser CORS preflight, not a user action; logging it buried the
+        # real entries. Docs endpoints carry no operational meaning either.
+        if (request.method != "OPTIONS" and request.url.path.startswith("/api/")
+                and request.url.path not in {"/api/docs", "/api/openapi.json"}):
             user_id = None
             authorization = request.headers.get("authorization", "")
             if authorization.startswith("Bearer "):
@@ -97,5 +103,7 @@ async def audit_middleware(request: Request, call_next):
 
 
 @app.exception_handler(Exception)
-async def unhandled(_: Request, exc: Exception):
+async def unhandled(request: Request, exc: Exception):
+    logger.exception("Unhandled error method=%s path=%s error_type=%s",
+                     request.method, request.url.path, type(exc).__name__)
     return JSONResponse(status_code=500, content={"detail": "Tizimda kutilmagan xatolik yuz berdi"})

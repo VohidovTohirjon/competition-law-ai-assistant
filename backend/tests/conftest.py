@@ -18,6 +18,13 @@ os.environ.update({
     "DATA_DIR": str(DATA_PATH),
     "GROQ_API_KEY": "test-key",
     "GROQ_MODEL": "openai/gpt-oss-20b",
+    # Pin the code default so a developer's .env tuning cannot leak into the suite.
+    "GROQ_REASONING_EFFORT": "low",
+    "LLM_MAX_TOKENS_GENERAL": "512",
+    "LLM_MAX_TOKENS_LEGAL": "1024",
+    "CONTEXT_MAX_CHARS": "18000",
+    # Tests monkeypatch the model per case; a reused answer would cross-contaminate them.
+    "ANSWER_CACHE_ENABLED": "false",
 })
 sys.path.insert(0, str(TEST_ROOT.parent))
 

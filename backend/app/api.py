@@ -1,4 +1,5 @@
 import io
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -15,19 +16,21 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from .config import get_settings
 from .database import get_db
 from .models import (AiHistory, AuditLog, Chunk, Document, NhhDocument,
-                     OrganizationProfile, Role, Task, TaskEvent, TaskStatus, User)
+                     OrganizationProfile, Role, Task, TaskEvent, TaskPriority, TaskStatus, User)
 from .schemas import (AiResponse, AnalysisRequest, AuditOut, ChatRequest, DocumentOut,
                       DraftRequest, HistoryOut, NhhOut, NhhUpdate, TaskCreate, TaskEventOut,
                       TaskOut, TaskUpdate, TokenOut, UserCreate, UserOut, UserUpdate,
                       SystemStatusOut, AiReadinessOut, LlmProviderStatusOut,
                       OrganizationProfileOut, OrganizationProfileUpdate)
-from .security import create_token, current_user, hash_password, require_roles, verify_password
+from .security import (burn_password_check, create_token, current_user, hash_password,
+                       login_throttle, require_roles, verify_password)
 from .services.documents import MIMES, receive_upload
 from .services.document_analysis import analyze_contradictions
 from .services.document_qa import answer_document_question
 from .services.drafting import create_response_letter
 from .services.export import make_docx, make_internal_evidence_docx
 from .services.llm import llm
+from .services import answer_cache
 from .services.ai_agent import (distinct_source_chunks, grounded_context,
                                 generate_grounded_document, generate_grounded_legal,
                                 has_legal_intent, prefer_article_starts, run_chat,
@@ -36,6 +39,7 @@ from .services.rag import (embeddings, index_document, index_document_async,
                            filter_legal_topic, legal_lexical_fallback, search_async,
                            sources_from_chunks)
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
 NHH_CATEGORIES = {
     "Qonun", "Prezident farmoni", "Prezident qarori", "Vazirlar Mahkamasi qarori",
@@ -96,9 +100,22 @@ OFFICIAL_PROFILE_FIELDS = {
 }
 
 
-def missing_official_fields(profile: OrganizationProfile, structured: dict | None = None) -> list[str]:
+FALLBACK_OFFICIAL_BLOCKER = (
+    "AI tomonidan tasdiqlangan matn (loyiha zaxira rejimda, tekshirilgan parchalardan tayyorlangan)"
+)
+
+
+def missing_official_fields(profile: OrganizationProfile, structured: dict | None = None,
+                            result_status: str | None = None) -> list[str]:
     missing = [label for field, label in OFFICIAL_PROFILE_FIELDS.items()
                if not str(getattr(profile, field, "") or "").strip()]
+    if result_status == "fallback" and (structured or {}).get("fallback_reason") not in (
+            None, "confidential_external_blocked"):
+        # The text came from the extractive fallback after a provider or validation
+        # failure, not from a validated generation: exportable as a draft, never as a
+        # finished outgoing letter. A letter produced locally by the confidentiality
+        # policy is a deliberate, complete result and stays exportable.
+        missing.append(FALLBACK_OFFICIAL_BLOCKER)
     values = structured or {}
     for field, label in (("document_date", "hujjat sanasi"),
                          ("outgoing_number", "chiqish raqami"),
@@ -128,7 +145,7 @@ def document_or_404(db: Session, document_id: str, user: User) -> Document:
     return document
 
 
-def all_document_chunks(db: Session, document_id: str, limit: int = 80) -> list[Chunk]:
+def all_document_chunks(db: Session, document_id: str, limit: int = 400) -> list[Chunk]:
     return list(db.scalars(
         select(Chunk)
         .options(joinedload(Chunk.document), joinedload(Chunk.nhh))
@@ -163,10 +180,32 @@ def distinct_article_sources(sources: list[dict]) -> list[dict]:
 
 
 @router.post("/auth/login", response_model=TokenOut)
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(form: OAuth2PasswordRequestForm = Depends(), request: Request = None,
+          db: Session = Depends(get_db)):
+    client = request.client.host if request and request.client else "unknown"
+    keys = [f"user:{form.username.strip().lower()}", f"ip:{client}"]
+    locked = next((login_throttle.locked_for(key) for key in keys
+                   if login_throttle.locked_for(key)), 0)
+    if locked:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Ketma-ket noto‘g‘ri urinishlar sababli kirish vaqtincha bloklandi. "
+            f"{locked} soniyadan so‘ng qayta urinib ko‘ring",
+        )
     user = db.scalar(select(User).where(User.username == form.username))
-    if not user or not user.is_active or not verify_password(form.password, user.password_hash):
+    if not user or not user.is_active:
+        # Same work as a real check, so a missing account cannot be detected by timing.
+        burn_password_check()
+        for key in keys:
+            login_throttle.record_failure(key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Login yoki parol noto‘g‘ri")
+    if not verify_password(form.password, user.password_hash):
+        for key in keys:
+            login_throttle.record_failure(key)
+        logger.warning("Login failed username=%s client=%s", form.username, client)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Login yoki parol noto‘g‘ri")
+    for key in keys:
+        login_throttle.record_success(key)
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
@@ -403,13 +442,16 @@ def download_document(document_id: str, user: User = Depends(current_user), db: 
 async def analyze_document(document_id: str, payload: AnalysisRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
     document = document_or_404(db, document_id, user)
     structured = None
-    query = payload.question or {
+    # Validate before the dict lookup: a missing question used to raise KeyError -> 500,
+    # and a whitespace-only question reached the model as an empty request.
+    question = (payload.question or "").strip()
+    if payload.operation == "qa" and not question:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Savol kiriting")
+    query = question or {
         "summary": "hujjatning qisqacha mazmuni",
         "key_points": "hujjatning eng muhim bandlari",
         "contradictions": "hujjat ichidagi qarama-qarshi yoki o‘zaro mos kelmaydigan fikrlar",
     }[payload.operation]
-    if payload.operation == "qa" and not payload.question:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Savol kiriting")
     deterministic = None
     if payload.operation == "qa":
         deterministic = answer_document_question(query, all_document_chunks(db, document.id))
@@ -429,12 +471,18 @@ async def analyze_document(document_id: str, payload: AnalysisRequest, user: Use
         result_kind = "no_sources"
         warning = None
     else:
-        evidence_chunks = distinct_source_chunks(chunks, limit=8)
+        # Contradiction detection compares statements across the WHOLE document; it
+        # verifies every quote against its own chunk, so more evidence cannot make it
+        # wrong, while less evidence made it answer "no contradictions found" falsely.
         if payload.operation == "contradictions":
-            answer, sources, structured = analyze_contradictions(evidence_chunks)
+            answer, sources, structured = analyze_contradictions(
+                distinct_source_chunks(chunks, limit=60))
             result_kind = "ok"
             warning = None
         else:
+            # Summary/key points/QA need enough of the document to be faithful; the
+            # context budget in `grounded_context` still bounds what is actually sent.
+            evidence_chunks = distinct_source_chunks(chunks, limit=24)
             sources = sources_from_chunks(evidence_chunks)
             instructions = {
                 "summary": "Hujjatning ixcham, faktlarga sodiq qisqacha mazmunini yozing.",
@@ -484,7 +532,9 @@ async def chat(payload: ChatRequest, request: Request, user: User = Depends(curr
                       result_kind=outcome.result_kind, warning=outcome.warning,
                       effective_mode=outcome.effective_mode,
                       routed_to_legal=outcome.routed_to_legal,
-                      evidence_context="legal" if outcome.effective_mode == "legal" else "general")
+                      evidence_context=("analytics" if outcome.operation == "analytics_chat"
+                                        else "legal" if outcome.effective_mode == "legal"
+                                        else "general"))
 
 
 @router.post("/drafts", response_model=AiResponse)
@@ -494,7 +544,13 @@ async def create_draft(payload: DraftRequest, user: User = Depends(current_user)
     document = document_or_404(db, payload.document_id, user) if payload.document_id else None
     document_chunks = all_document_chunks(db, document.id) if document else []
     base = grounded_context(document_chunks) if document_chunks else payload.instruction
-    legal_required = payload.kind == "response_letter" or has_legal_intent(payload.instruction)
+    # The instruction alone ("Ushbu murojaat bo‘yicha hisobot tayyorla") carries no legal
+    # keyword, but the attached appeal does. Judging by the instruction only sent the
+    # report/ma'lumotnoma/brief/analytical flows down the ungrounded path, where the
+    # model invented article numbers.
+    legal_required = (payload.kind == "response_letter"
+                      or has_legal_intent(payload.instruction)
+                      or (bool(document_chunks) and has_legal_intent(base[:4000])))
     chunks = await search_async(db, f"{payload.instruction}\n{base[:2000]}", user, "nhh", None, 10) if legal_required else []
     if legal_required and not chunks:
         chunks = legal_lexical_fallback(db, f"{payload.instruction}\n{base[:2000]}", 10)
@@ -510,23 +566,28 @@ async def create_draft(payload: DraftRequest, user: User = Depends(current_user)
         "response_letter": "Javob xati loyihasi", "report": "Hisobot", "info_note": "Ma’lumotnoma",
         "brief": "Qisqa ma’lumot", "analytical_conclusion": "Tahliliy xulosa",
     }
+    # Confidential material policy is the same for every draft kind: internal NHH text
+    # or a confidential appeal must not reach an external provider.
+    contains_internal_nhh = any(
+        chunk.nhh and chunk.nhh.category == "Idoraviy (ichki) hujjat" for chunk in chunks
+    )
+    external_allowed = get_settings().allow_external_confidential_ai or not (
+        (document and document.is_confidential) or contains_internal_nhh
+    )
     if payload.kind == "response_letter":
-        contains_internal_nhh = any(
-            chunk.nhh and chunk.nhh.category == "Idoraviy (ichki) hujjat" for chunk in chunks
-        )
-        external_allowed = get_settings().allow_external_confidential_ai or not (
-            (document and document.is_confidential) or contains_internal_nhh
-        )
         outcome = await create_response_letter(
             payload.instruction, document_chunks, chunks, allow_external=external_allowed,
         )
         outcome.structured.update({
+            "fallback_reason": outcome.failure_reason,
             "recipient": payload.recipient.strip(),
             "document_date": payload.document_date.isoformat() if payload.document_date else "",
             "outgoing_number": payload.outgoing_number.strip(),
         })
         profile = organization_profile(db)
-        missing = missing_official_fields(profile, outcome.structured)
+        missing = missing_official_fields(
+            profile, outcome.structured,
+            "fallback" if outcome.result_kind == "source_matches" else "success")
         item = history_record(
             db, user, payload.kind, payload.instruction, outcome.answer, outcome.sources,
             document.id if document else None,
@@ -548,7 +609,10 @@ async def create_draft(payload: DraftRequest, user: User = Depends(current_user)
               "raqami, qabul qiluvchi tashkilot yoki mansabdor shaxs dalilda bo‘lmasa ularni o‘ylab topmang; "
               "zarur joyda [sana], [chiqish raqami], [qabul qiluvchi] kabi ochiq placeholder ishlating. "
               "Natijani 650 so‘zdan oshirmang, rasmiy manba parchalarini to‘liq ko‘chirmang, faqat zarur "
-              "xulosani citation bilan ixcham bayon qiling. ")
+              "xulosani citation bilan ixcham bayon qiling. Murojaatda bayon etilgan da’voni "
+              "isbotlangan fakt deb e’lon qilmang: qoidabuzarlik sodir etilgani, qonun buzilgani "
+              "yoki javobgarlik haqida qat’iy xulosa chiqarmang, «tasdiqlangan taqdirda ... "
+              "baholanishi mumkin» kabi shartli tilni ishlating. ")
     if legal_required:
         system += "Huquqiy asos sifatida faqat berilgan NHH manbalaridan foydalaning va [1] shaklida belgilang."
     prompt = f"TURI: {labels[payload.kind]}\nTOPSHIRIQ: {payload.instruction}\n\nASOSIY MA’LUMOT:\n{base}"
@@ -560,8 +624,7 @@ async def create_draft(payload: DraftRequest, user: User = Depends(current_user)
     if legal_required:
         generation = await generate_grounded_legal(
             system, prompt, sources, additional_evidence=base, budget_kind="drafting",
-            allow_external=(get_settings().allow_external_confidential_ai
-                            or not (document and document.is_confidential)),
+            allow_external=external_allowed,
         )
         answer = generation.answer
         sources = generation.sources
@@ -570,7 +633,7 @@ async def create_draft(payload: DraftRequest, user: User = Depends(current_user)
         if result_kind == "source_matches" and warning:
             answer = source_based_draft(labels[payload.kind], payload.instruction, base, sources)
     else:
-        if document and document.is_confidential and not get_settings().allow_external_confidential_ai:
+        if not external_allowed:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "Maxfiy hujjat asosidagi generativ loyiha uchun tasdiqlangan lokal AI xizmati sozlanmagan",
@@ -608,7 +671,7 @@ def export_history(history_id: str, official: bool = Query(False),
                   "analytical_conclusion": "Tahliliy xulosa"}
         profile = organization_profile(db)
         if official and item.operation == "response_letter":
-            missing = missing_official_fields(profile, item.structured_data)
+            missing = missing_official_fields(profile, item.structured_data, item.status)
             if missing:
                 raise HTTPException(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -657,7 +720,8 @@ def update_organization_profile(payload: OrganizationProfileUpdate,
                                 user: User = Depends(require_roles(Role.administrator)),
                                 db: Session = Depends(get_db)):
     profile = organization_profile(db)
-    for key, value in payload.model_dump().items():
+    # Only the submitted fields change; a partial payload must not blank the rest.
+    for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(profile, key, value.strip())
     profile.updated_by = user.id
     db.commit()
@@ -794,6 +858,7 @@ def reindex_nhh(nhh_id: str, _: User = Depends(require_roles(Role.administrator)
     item.indexing_status = "processing"
     item.processing_error = None
     db.commit()
+    answer_cache.clear()
     try:
         index_document(db, item, "nhh")
         item.indexing_status = "completed"
@@ -920,7 +985,7 @@ def task_events(task_id: str, user: User = Depends(current_user), db: Session = 
 @router.get("/dashboard")
 def dashboard(user: User = Depends(require_roles(Role.administrator, Role.rahbar)), db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
-    tasks = list(db.scalars(select(Task)))
+    tasks = list(db.scalars(select(Task).order_by(Task.deadline.asc(), Task.created_at.asc())))
     overdue = [task for task in tasks if task.is_overdue]
     important_stmt = select(Document).where(Document.category.in_(["murojaat", "muhim"]))
     if user.role != Role.administrator:
@@ -956,8 +1021,16 @@ def dashboard(user: User = Depends(require_roles(Role.administrator, Role.rahbar
             "kechikkan": worker_overdue,
             "progress_percent": round(completed / len(assigned) * 100) if assigned else 0,
         })
+    # Overdue first, then by priority, then by deadline: a leader must not have to
+    # scroll past routine items to see what is already late.
+    priority_rank = {TaskPriority.shoshilinch: 0, TaskPriority.yuqori: 1,
+                     TaskPriority.odatiy: 2, TaskPriority.past: 3}
+    ranked = sorted(open_tasks, key=lambda task: (not task.is_overdue,
+                                                  priority_rank.get(task.priority, 9),
+                                                  task.deadline))
     return {
-        "mavjud_muammolar": [task_item(task) for task in open_tasks[:10]],
+        "mavjud_muammolar": [task_item(task) for task in ranked[:10]],
+        "mavjud_muammolar_jami": len(open_tasks),
         "kechikayotgan_topshiriqlar": [task_item(task) for task in overdue],
         "muhim_murojaatlar": [document_item(doc) for doc in important],
         "statistika": {

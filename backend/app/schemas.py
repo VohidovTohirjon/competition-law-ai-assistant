@@ -79,7 +79,7 @@ class AiResponse(BaseModel):
     warning: str | None = None
     effective_mode: Literal["legal", "general"] = "general"
     routed_to_legal: bool = False
-    evidence_context: Literal["legal", "document", "draft", "general"] = "general"
+    evidence_context: Literal["legal", "document", "draft", "analytics", "general"] = "general"
     structured: dict | None = None
 
 
@@ -208,6 +208,12 @@ class TaskCreate(BaseModel):
     priority: TaskPriority = TaskPriority.odatiy
     related_document_id: str | None = None
 
+    @field_validator("related_document_id", mode="before")
+    @classmethod
+    def empty_document_is_none(cls, value):
+        # The form sends "" when no document is chosen; "" is not a document id.
+        return value or None
+
     @field_validator("deadline")
     @classmethod
     def timezone_required(cls, value: datetime):
@@ -225,6 +231,11 @@ class TaskUpdate(BaseModel):
     deadline: datetime | None = None
     related_document_id: str | None = None
     comment: str | None = Field(default=None, max_length=3000)
+
+    @field_validator("related_document_id", mode="before")
+    @classmethod
+    def empty_document_is_none(cls, value):
+        return value or None
 
 
 class TaskOut(OrmModel):
