@@ -19,7 +19,8 @@ from .grounding import (article_label, extractive_document_fallback,
                         extractive_legal_fallback, latin_legal_answer, used_sources,
                         repair_document_citations, validate_cited_answer,
                         validate_legal_answer)
-from .rag import (_has_topical_overlap, _requested_article_number, filter_legal_topic,
+from .rag import (_has_topical_overlap, _requested_article_number, _token_set, _topical_tokens,
+                  filter_legal_topic,
                   legal_lexical_fallback, names_foreign_document, search_async,
                   sources_from_chunks, clean_excerpt)
 
@@ -293,6 +294,22 @@ def article_count_answer(db: Session, question: str) -> tuple[str, list[dict]] |
     answer = (f"«{document.title}» hujjatida jami **{len(numbers)} ta modda** mavjud "
               f"({numbers[0]}-moddadan {numbers[-1]}-moddagacha). [1]")
     return answer, [source]
+
+
+LIST_QUESTION_RE = re.compile(
+    r"mezon|shart|ro'yxat|jarima|sank[t]?siya|taqiq|harakat|holat|hollar|qaysilar|nimalar|turlari",
+    re.IGNORECASE)
+
+
+def _enumeration_is_on_topic(question: str, source: dict, lead: str) -> bool:
+    """A list is worth completing when its lead-in or heading names the question's subject."""
+    topical = _topical_tokens(question)
+    haystack = _token_set(f"{source.get('article_or_clause') or ''} {lead}")
+    if topical & haystack:
+        return True
+    normalized = question.translate(APOSTROPHES_TABLE).lower()
+    return bool(LIST_QUESTION_RE.search(normalized)) and not re.search(
+        r"asosiy tushuncha|tushunchalar qo", lead.translate(APOSTROPHES_TABLE).lower())
 
 
 def article_chunks_by_number(db: Session, number: str, limit: int = 12) -> list[Chunk]:
@@ -745,7 +762,12 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
     if deterministic:
         pass
     elif llm.configured:
-        enumerations = [(source, source_enumeration(source)) for source in sources]
+        # Only a statutory list ABOUT the question is guaranteed in full. Article 4's
+        # glossary is an enumeration too, but appending twenty definitions to
+        # "what is unfair competition?" buries the answer instead of completing it.
+        enumerations = [(source, enumerated) for source in sources
+                        if (enumerated := source_enumeration(source))
+                        and _enumeration_is_on_topic(question, source, enumerated[0])]
         list_hint = ""
         for source, enumerated in enumerations:
             if enumerated:

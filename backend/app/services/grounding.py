@@ -435,6 +435,7 @@ GENERATED_TEXT_FIXES = (
     (r"asosiy hisoblash miqdor", "bazaviy hisoblash miqdor"),
     (r"\braqobatlaash", "raqobatlash"),
     (r"\buston mavqe", "ustun mavqe"),
+    (r"\bo[’'‘`]tkir kalendar", "oxirgi kalendar"),
     (r"\btabiiiy\b", "tabiiy"),
     (r"\bO[’'`]tkir kalendar", "Oxirgi kalendar"),
     (r"\bnoto[‘’'`]g[‘’'`]ri raqobat", "insofsiz raqobat"),
