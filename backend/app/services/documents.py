@@ -62,8 +62,16 @@ def parse_file(kind: str, data: bytes) -> str:
     except Exception as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Fayl matnini o‘qib bo‘lmadi") from exc
     text = re.sub(r"[ \t]+", " ", text).strip()
-    if not text:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Faylda o‘qiladigan matn topilmadi")
+    # A scanned PDF still yields one "[Sahifa n]" marker per page, so the raw text is
+    # not empty even though the document carries no readable content. Judge the body
+    # after the markers are removed, otherwise the analysis describes the page markers.
+    body = re.sub(r"\[(?:Sahifa \d+|Varaq: [^\]]*)\]", "", text).strip()
+    if not body:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "Faylda o‘qiladigan matn topilmadi. Skanerlangan hujjat uchun matnli "
+            "(OCR qilingan) nusxasini yuklang",
+        )
     return text
 
 

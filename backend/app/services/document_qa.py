@@ -75,9 +75,26 @@ def _question_tokens(value: str) -> set[str]:
     }
 
 
+# "12-bo‘limda jami murojaatlar nechta?" names WHICH occurrence is wanted. The
+# deterministic extractor scans the whole document and would answer with the first
+# match, so a qualified question must not take this path.
+QUALIFIER_RE = re.compile(
+    r"\b(\d{1,3})\s*[-‑–—]?\s*(bo['‘’ʻ`]?lim|band|modda|bob|chorak|sahifa|varaq)\w*",
+    re.IGNORECASE,
+)
+
+
+def _stems(value: str) -> set[str]:
+    """Prefix stems, so agglutinative suffixes do not break the overlap test."""
+    return {token[:5] for token in _question_tokens(value) if len(token) >= 5}
+
+
 def answer_document_question(question: str, chunks: list[Chunk]) -> DeterministicAnswer | None:
     """Resolve explicit arithmetic/extractive questions locally; never invent missing facts."""
     q = _normalized(question)
+    if QUALIFIER_RE.search(q):
+        # Let retrieval + the grounded generator answer, they can see which section.
+        return None
     metrics = _metrics(chunks)
     numerator = _find_metric(metrics, "jarayonda")
     denominator = _find_metric(metrics, "jami murojaatlar", "murojaatlar soni")
@@ -161,8 +178,11 @@ def answer_document_question(question: str, chunks: list[Chunk]) -> Deterministi
     fact_question = any(term in q for term in
                         ("necha", "nechta", "qancha", "qachon", "qayer", "kim", "qaysi"))
     if fact_question:
-        evidence_tokens = _question_tokens(" ".join(chunk.text for chunk in chunks))
-        if not (_question_tokens(q) & evidence_tokens):
+        # Compared on prefix stems: Uzbek is agglutinative, so "ulushi"/"ulushga" and
+        # "murojaatda"/"murojaat" are the same word for relevance purposes. An exact
+        # token test refused questions the document plainly answers.
+        evidence = " ".join(chunk.text for chunk in chunks)
+        if not (_stems(q) & _stems(evidence)):
             return DeterministicAnswer("Bu ma’lumot tanlangan hujjatda topilmadi.", [],
                                        {"kind": "document_qa", "method": "not_found"})
     return None

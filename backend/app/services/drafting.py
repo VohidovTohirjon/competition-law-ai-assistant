@@ -1,3 +1,4 @@
+import logging
 import re
 from dataclasses import dataclass
 
@@ -5,9 +6,12 @@ from fastapi import HTTPException
 
 from ..config import get_settings
 from ..models import Chunk
+from .grounding import latin_legal_answer
 from .llm import llm
 from .rag import clean_excerpt, sources_from_chunks
 
+
+logger = logging.getLogger(__name__)
 
 RESPONSE_LETTER_SCHEMA = {
     "type": "object",
@@ -112,7 +116,16 @@ def _fallback_structure(document_chunks: list[Chunk], legal_chunks: list[Chunk])
         and "haqiqiy murojaat emas" not in s.lower()
         and " | " not in s
     ]
-    summary = candidates[:3] or ["Murojaat mazmuni hujjatdagi mavjud ma’lumotlar asosida ko‘rib chiqildi."]
+    summary = ["Qo‘mitaga kelib tushgan murojaat ko‘rib chiqildi."]
+    for sentence in candidates[:3]:
+        # Headings and title fragments are not statements; and the appellant writes in
+        # the first person, which must never appear as the Committee's own voice.
+        if len(sentence) < 60 and not sentence.rstrip().endswith((".", "!", "?")):
+            continue
+        reported = re.sub(r"\b(\w+?)(?:amiz|aymiz|ymiz|miz)\b", r"\1gani bildirilgan", sentence)
+        summary.append("Murojaatda ko‘rsatilishicha, " + reported[:1].lower() + reported[1:])
+    if len(summary) == 1:
+        summary.append("Murojaat mazmuni hujjatdagi mavjud ma’lumotlar asosida ko‘rib chiqildi.")
     legal_basis = []
     for index, chunk in enumerate(legal_chunks[:3], 1):
         label = _legal_label(chunk)
@@ -142,19 +155,28 @@ def _fallback_structure(document_chunks: list[Chunk], legal_chunks: list[Chunk])
     }
 
 
-def _validate_structure(value: dict, document_text: str, legal_ids: set[str]) -> bool:
+def _validate_structure(value: dict, document_text: str, legal_text: str,
+                        legal_ids: set[str]) -> str | None:
+    """None when the letter is acceptable, otherwise a short machine-readable reason."""
     required = {"subject", "salutation", "appeal_summary", "legal_basis", "conclusion", "closing"}
     if not required.issubset(value) or not isinstance(value.get("appeal_summary"), list):
-        return False
-    doc_numbers = _numbers(document_text)
+        return "missing_fields"
+    # Every figure the letter may state: the appeal's own numbers plus everything the
+    # cited legal evidence contains (article numbers, thresholds, deadlines). Checking
+    # against the appeal alone rejected correct letters over their own article number.
+    doc_numbers = _numbers(document_text) | _numbers(legal_text)
     for statement in value["appeal_summary"]:
-        if not isinstance(statement, str) or not _numbers(statement).issubset(doc_numbers):
-            return False
+        if not isinstance(statement, str):
+            return "summary_not_text"
+        invented = _numbers(statement) - doc_numbers
+        if invented:
+            return "summary_number:" + ",".join(sorted(invented))
     for basis in value.get("legal_basis", []):
         if not isinstance(basis, dict) or not basis.get("source_ids"):
-            return False
-        if not set(basis["source_ids"]).issubset(legal_ids):
-            return False
+            return "legal_basis_uncited"
+        unknown = set(basis["source_ids"]) - legal_ids
+        if unknown:
+            return "legal_basis_source:" + ",".join(sorted(unknown))
     conclusions = " ".join(value.get("conclusion") or []).lower()
     categorical = re.search(
         r"(?:qoidabuzarlik|huquqbuzarlik)\s+(?:sodir etilgan|tasdiqlandi|aniqlandi)|"
@@ -164,8 +186,55 @@ def _validate_structure(value: dict, document_text: str, legal_ids: set[str]) ->
     conditional = any(value in conclusions for value in
                       ("tasdiqlangan taqdirda", "mumkin", "ehtimol", "faqat"))
     if categorical and not conditional:
-        return False
-    return True
+        return "categorical_conclusion"
+    return None
+
+
+IDENTIFIER_RE = re.compile(r"\[?\b([LD]\d{1,2})\b\]?")
+
+
+def _map_prose_identifiers(structured: dict, citation_map: dict[str, int]) -> None:
+    """Turn internal L1/D1 identifiers the model left in prose into display citations.
+
+    An item that consists of nothing but an identifier carries no statement and is
+    dropped rather than rendered as a bare "L1" line in an official letter.
+    """
+    def convert(text: str) -> str:
+        return IDENTIFIER_RE.sub(
+            lambda match: f"[{citation_map[match.group(1)]}]" if match.group(1) in citation_map else "",
+            text,
+        ).strip()
+
+    for key in ("appeal_summary", "conclusion"):
+        items = structured.get(key)
+        if not isinstance(items, list):
+            continue
+        cleaned = []
+        for item in items:
+            if not isinstance(item, str):
+                continue
+            if IDENTIFIER_RE.fullmatch(item.strip()) or not item.strip():
+                continue
+            cleaned.append(convert(item))
+        structured[key] = cleaned
+
+
+def _latinize_letter(structured: dict) -> None:
+    """Keep the outgoing letter in Latin script even when the model mirrors Cyrillic evidence.
+
+    Applied only after structural validation; transliteration is a 1:1 script mapping
+    and cannot introduce a number, date or claim that was not already there.
+    """
+    for key in ("subject", "salutation"):
+        if isinstance(structured.get(key), str):
+            structured[key] = latin_legal_answer(structured[key])
+    for key in ("appeal_summary", "conclusion"):
+        if isinstance(structured.get(key), list):
+            structured[key] = [latin_legal_answer(item) if isinstance(item, str) else item
+                               for item in structured[key]]
+    for basis in structured.get("legal_basis") or []:
+        if isinstance(basis, dict) and isinstance(basis.get("statement"), str):
+            basis["statement"] = latin_legal_answer(basis["statement"])
 
 
 def render_response_letter(structured: dict, citation_map: dict[str, int]) -> str:
@@ -203,7 +272,10 @@ async def create_response_letter(instruction: str, document_chunks: list[Chunk],
                 "Maxfiy yoki ichki material tashqi AI xizmatiga yuborilmadi",
             )
         structured = await llm.generate_structured(
-            "Rasmiy javob xati tuzing. Faqat DOCUMENT_EVIDENCE faktlari va LEGAL_EVIDENCE "
+            "Rasmiy javob xati tuzing. Bo‘limlar nomini (DOCUMENT_EVIDENCE, LEGAL_EVIDENCE, "
+            "TOPSHIRIQ) matnda ishlatmang. Butun matnni faqat o‘zbek lotin alifbosida yozing; "
+            "kirill yozuvidagi manba matnini ko‘chirmang, mazmunini lotin yozuvida bayon qiling. "
+            "Faqat DOCUMENT_EVIDENCE faktlari va LEGAL_EVIDENCE "
             "normalaridan foydalaning. Murojaatdagi sana, son va nomlarni o‘zgartirmang. "
             "Huquqiy xulosada faqat L manba identifikatorlarini ishlating. Placeholder zarur "
             "bo‘lsa kvadrat qavsda yozing. Murojaatdagi da'voni isbotlangan fakt deb e'lon "
@@ -220,8 +292,12 @@ async def create_response_letter(instruction: str, document_chunks: list[Chunk],
         structured["review_note"] = (
             "Ishchi loyiha. Yuborishdan oldin mas’ul xodim tahriri va huquqiy tekshiruvi talab etiladi."
         )
-        if not _validate_structure(structured, document_text,
-                                   {f"L{i}" for i in range(1, len(legal_chunks[:3]) + 1)}):
+        legal_text = "\n".join(f"{chunk.article_clause or ''} {chunk.text}"
+                               for chunk in legal_chunks[:3])
+        reason = _validate_structure(structured, document_text, legal_text,
+                                     {f"L{i}" for i in range(1, len(legal_chunks[:3]) + 1)})
+        if reason:
+            logger.warning("Response letter rejected reason=%s", reason)
             raise HTTPException(502, "AI xizmati tuzilmali javob formatiga rioya qilmadi")
         if legal_chunks and not any("tasdiqlangan taqdirda" in item.lower()
                                     for item in structured.get("conclusion", [])):
@@ -232,6 +308,8 @@ async def create_response_letter(instruction: str, document_chunks: list[Chunk],
                 f"[{citation_map['L1']}]",
             )
         structured["closing"] = "[Ism]\n[Lavozim]\n[Tashkilot]"
+        _map_prose_identifiers(structured, citation_map)
+        _latinize_letter(structured)
         return DraftOutcome(render_response_letter(structured, citation_map), sources, structured,
                             "ok", None, None)
     except HTTPException as exc:

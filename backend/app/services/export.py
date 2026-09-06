@@ -103,12 +103,19 @@ def _configure(doc: Document, *, official_letter: bool = False, profile=None) ->
     settings.append(compat)
 
 
+_INLINE_MARKUP_RE = re.compile(r"\*\*(.+?)\*\*|(?<!\*)\*(?!\s)([^*]+?)(?<!\s)\*(?!\*)|`([^`]+)`")
+
+
 def _add_rich_text(paragraph, value: str) -> None:
     cursor = 0
-    for match in re.finditer(r"\*\*(.+?)\*\*", value):
+    for match in _INLINE_MARKUP_RE.finditer(value):
         if match.start() > cursor:
             _font(paragraph.add_run(value[cursor:match.start()]))
-        _font(paragraph.add_run(match.group(1)), bold=True)
+        bold, italic, code = match.groups()
+        run = paragraph.add_run(bold or italic or code)
+        _font(run, bold=True if bold else None)
+        if italic:
+            run.italic = True
         cursor = match.end()
     if cursor < len(value):
         _font(paragraph.add_run(value[cursor:]))
@@ -130,14 +137,58 @@ def _add_hyperlink(paragraph, text: str, url: str, color_hex: str = "12664E") ->
     paragraph._p.append(hyperlink)
 
 
+_TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
+_TABLE_RULE_RE = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
+
+
+def _table_cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def _add_table(doc: Document, rows: list[str]) -> None:
+    """Render a GFM table as a real Word table instead of literal pipe characters."""
+    parsed = [_table_cells(row) for row in rows if not _TABLE_RULE_RE.match(row)]
+    parsed = [row for row in parsed if any(cell for cell in row)]
+    if not parsed:
+        return
+    width = max(len(row) for row in parsed)
+    table = doc.add_table(rows=len(parsed), cols=width)
+    table.style = "Table Grid"
+    for r, row in enumerate(parsed):
+        for c in range(width):
+            cell = table.cell(r, c)
+            cell.text = ""
+            paragraph = cell.paragraphs[0]
+            paragraph.paragraph_format.space_after = Pt(2)
+            _add_rich_text(paragraph, row[c].replace("<br>", " ") if c < len(row) else "")
+            if r == 0:
+                for run in paragraph.runs:
+                    run.bold = True
+    doc.add_paragraph()
+
+
 def _add_markdown(doc: Document, content: str) -> None:
-    for raw in content.splitlines():
+    lines = content.splitlines()
+    index = 0
+    while index < len(lines):
+        raw = lines[index]
         line = raw.strip()
+        index += 1
         if not line:
             continue
-        heading = re.match(r"^(#{1,3})\s+(.+)$", line)
+        if _TABLE_ROW_RE.match(line):
+            block = [line]
+            while index < len(lines) and _TABLE_ROW_RE.match(lines[index].strip()):
+                block.append(lines[index].strip())
+                index += 1
+            _add_table(doc, block)
+            continue
+        if re.fullmatch(r"(?:---+|___+|\*\*\*+)", line):
+            continue  # a thematic break has no meaning in an official document
+        heading = re.match(r"^(#{1,6})\s+(.+)$", line)
         if heading:
-            doc.add_heading(re.sub(r"\*\*", "", heading.group(2)), level=len(heading.group(1)))
+            doc.add_heading(re.sub(r"\*\*", "", heading.group(2)),
+                            level=min(len(heading.group(1)), 4))
             continue
         bullet = re.match(r"^[-*]\s+(.+)$", line)
         numbered = re.match(r"^\d+[.)]\s+(.+)$", line)
@@ -180,7 +231,9 @@ def _official_date(value) -> str:
 # Internal evidence identifiers handed to the generator (D1 = document evidence,
 # L1 = legal evidence). They index the internal evidence sheet and must never
 # appear in the recipient-facing letter.
-_CITATION_TOKEN_RE = re.compile(r"\s*\[(?:\d+(?:\s*,\s*\d+)*)\]")
+_CITATION_TOKEN_RE = re.compile(r"\s*[(\[]?\[(?:\d+(?:\s*,\s*\d+)*)\][)\]]?")
+_INTERNAL_TOKEN_RE = re.compile(r"\b(?:DOCUMENT_EVIDENCE|LEGAL_EVIDENCE|TOPSHIRIQ)\b\s*")
+_EMPTY_BRACKETS_RE = re.compile(r"\s*[(\[]\s*[)\]]")
 _BRACKETED_EVIDENCE_ID_RE = re.compile(
     r"\s*[(\[]\s*[DL]\d{1,2}(?:\s*[,;]\s*[DL]\d{1,2})*\s*[)\]]"
 )
@@ -194,6 +247,8 @@ def _external_text(value: str) -> str:
     text = _BARE_EVIDENCE_ID_RE.sub("", text)
     # Stripping a mid-sentence token leaves doubled spaces or a space before
     # punctuation; the letter must still read as ordinary formal prose.
+    text = _INTERNAL_TOKEN_RE.sub("", text)
+    text = _EMPTY_BRACKETS_RE.sub("", text)
     text = re.sub(r"[ \t]{2,}", " ", text)
     text = re.sub(r"\s+([,.;:!?])", r"\1", text)
     return text.strip()

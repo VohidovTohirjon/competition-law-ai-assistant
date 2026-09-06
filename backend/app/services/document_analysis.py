@@ -56,20 +56,27 @@ def analyze_contradictions(chunks: list[Chunk]) -> tuple[str, list[dict], dict]:
                 date = f"{int(match.group(1))}-{match.group(2).lower()}-{match.group(3) or ''}"
                 statements.append(EvidenceStatement(sentence, date, chunk))
 
-    findings: list[tuple[EvidenceStatement, EvidenceStatement]] = []
-    seen: set[tuple[str, str]] = set()
+    candidates: dict[tuple[str, str], list[tuple[EvidenceStatement, EvidenceStatement]]] = {}
+    order: list[tuple[str, str]] = []
     for index, left in enumerate(statements):
         for right in statements[index + 1:]:
             if left.date == right.date or not _same_claim(left.text, right.text):
                 continue
-            key = tuple(sorted((left.date, right.date)))
-            if key in seen:
-                continue
             # Exact substring verification is the final acceptance gate.
             if left.text not in left.chunk.text or right.text not in right.chunk.text:
                 continue
-            seen.add(key)
-            findings.append((left, right))
+            key = tuple(sorted((left.date, right.date)))
+            if key not in candidates:
+                candidates[key] = []
+                order.append(key)
+            candidates[key].append((left, right))
+    findings: list[tuple[EvidenceStatement, EvidenceStatement]] = []
+    for key in order:
+        pairs = candidates[key]
+        # Two different passages disagreeing is the evidence worth showing; a pair
+        # inside one chunk is only used when the document offers nothing better.
+        findings.append(next((pair for pair in pairs if pair[0].chunk.id != pair[1].chunk.id),
+                             pairs[0]))
 
     used_chunks: list[Chunk] = []
     for left, right in findings:
