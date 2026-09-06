@@ -1,133 +1,164 @@
 # Raqobat AI Assistant
 
-Raqobat qo‘mitasi rahbariyati va xodimlari uchun hujjat tahlili, huquqiy RAG qidiruvi, rasmiy hujjat loyihalari va topshiriqlar nazoratini bitta o‘zbekcha interfeysda birlashtirgan ichki axborot tizimi.
+Raqobat qo‘mitasi rahbariyati va xodimlari uchun sun’iy intellektga asoslangan agent-yordamchi: hujjatlarni tahlil qiladi, normativ-huquqiy hujjatlar (NHH) bazasidan huquqiy asosni **manbasi bilan** topadi, rasmiy xat va ma’lumotnoma loyihalarini tayyorlaydi va rahbar uchun boshqaruv tahlilini beradi. Interfeys tili — o‘zbek (lotin).
+
+> **Asosiy tamoyil:** tizim huquqiy javobni shunchaki «to‘qib» bermaydi. Har bir huquqiy javob «qaysi hujjatga asoslanib berildi?» degan savolga hujjat nomi, modda raqami, rasmiy havola va foydalanilgan parcha bilan javob beradi. Dalil bilan tasdiqlanmagan matn foydalanuvchiga chiqarilmaydi.
+
+**Stek:** Python 3.12 · FastAPI · PostgreSQL 16+ + pgvector · BAAI/bge-m3 embedding · OpenAI-mos LLM (o‘z serveringizdagi vLLM yoki Groq) · React 19 + TypeScript + Vite.
+
+---
+
+## Mundarija
+
+1. [Tizim nima qiladi](#tizim-nima-qiladi)
+2. [Arxitektura](#arxitektura)
+3. [Tez boshlash](#tez-boshlash)
+4. [Konfiguratsiya](#konfiguratsiya)
+5. [Xavfsizlik](#xavfsizlik)
+6. [Rollar va amaliy oqim](#rollar-va-amaliy-oqim)
+7. [Loyiha tuzilmasi](#loyiha-tuzilmasi)
+8. [Testlar](#testlar)
+9. [Production deploy](#production-deploy)
+10. [Rasmiy korpus va namuna ma’lumotlar](#rasmiy-korpus-va-namuna-malumotlar)
+
+---
+
+## Tizim nima qiladi
+
+| Modul | Imkoniyat |
+|---|---|
+| **AI chat** | Huquqiy savolga NHH bazasidan javob: hujjat nomi, modda/band, lex.uz havolasi, foydalanilgan parcha. Umumiy ish savollariga esa manbasiz, aniq belgilangan «umumiy» rejimda javob beradi. |
+| **Hujjatlar bilan ishlash** | PDF, DOCX, XLSX yuklash; qisqacha mazmun, asosiy bandlar, hujjat bo‘yicha savol-javob, ichki qarama-qarshiliklarni aniqlash. |
+| **NHH bazasi** | Qonunlar, farmonlar, qarorlar, nizomlar, idoraviy hujjatlar; modda darajasida indekslanadi; administrator yuklaydi va boshqaradi. |
+| **Hujjat loyihalari** | Murojaatga javob xati, hisobot, ma’lumotnoma, qisqa ma’lumot, tahliliy xulosa — tashkilot rekvizitlari bilan **DOCX** ko‘rinishida. |
+| **Rahbar analitikasi** | «Bugungi kun uchun asosiy muammolarni ko‘rsat» — mavjud muammolar, kechikayotgan topshiriqlar, muhim murojaatlar, statistika, e’tibor talab qiladigan holatlar. Tizimning o‘z yozuvlaridan hisoblanadi, LLM ishlatilmaydi. |
+| **Topshiriqlar** | Yaratish, tayinlash, holat va muddat nazorati, tarix. |
+| **Administrator paneli** | Foydalanuvchilar va rollar, NHH bazasi, tashkilot profili (rasmiy xat rekvizitlari), diagnostika, audit jurnali. |
+
+---
 
 ## Arxitektura
 
-- `frontend/` — React, TypeScript va Vite asosidagi responsive interfeys.
-- `backend/` — FastAPI REST API, JWT autentifikatsiya va qat’iy backend RBAC.
-- PostgreSQL + pgvector — foydalanuvchilar, hujjatlar, NHH, vektorlar, tarix, topshiriqlar va audit.
-- BGE-M3 — o‘zbekcha va huquqiy matnlarga mos alohida embedding modeli.
-- LLM — bitta OpenAI-mos provayder abstraksiyasi: production'da o‘z serveringizdagi vLLM (`openai/gpt-oss-20b`), ixtiyoriy ravishda Groq. Kalitlar faqat serverda.
-- Fayllar — backend nazoratidagi `DATA_DIR` ichida saqlanadi; yuklash va AI qidiruvi ruxsat bilan cheklanadi.
+Texnik topshiriqdagi umumiy sxema:
 
-Jarayon: fayl → turini tekshirish → parsing → strukturali chunklar → embedding → pgvector. Savol → AI orchestrator intent tekshiruvi → ruxsat filtri → gibrid qidiruv → mavzu va relevance filtri → article/overlap deduplikatsiyasi → barqaror dalil tartibi → backend bergan citation raqamlari → cheklangan kontekst → Groq (`temperature=0`) → hujjat/modda/raqam/sana/citation/iqtibos grounding validatsiyasi → faqat haqiqatan ishlatilgan manbalar.
+```
+Foydalanuvchi
+      ↓
+Web interfeys          React + TypeScript (frontend/)
+      ↓
+Backend API            FastAPI, JWT, RBAC (backend/app/api.py)
+      ↓
+AI Agent               backend/app/services/ai_agent.py
+   /         \
+ RAG          LLM
+  ↓            ↓
+NHH bazasi   AI model    PostgreSQL + pgvector      vLLM (gpt-oss-20b) yoki Groq
+          ↓
+      AI javob         faqat dalil bilan tasdiqlangan matn
+```
 
-Grounding tekshiruvi o‘tmasa tizim ko‘pi bilan bir marta cheklangan tuzatish so‘raydi. Ikkinchi urinish ham o‘tmasa generativ matn foydalanuvchiga chiqarilmaydi: faqat bazadan olingan, citation bilan bog‘langan asl parchalar aniq fallback yorlig‘i ostida ko‘rsatiladi. Shu sabab ilova “hallucination imkonsiz” deb da’vo qilmaydi; kafolat shuki, dalilda yo‘q huquqiy identifikator va citation tasdiqlangan huquqiy javob sifatida qabul qilinmaydi.
+### Bitta huquqiy savol qanday yo‘l bosib o‘tadi
 
-Foydalanuvchi tanlagan rejim — bu shartnoma, taxmin emas. `mode="general"` tanlansa savol matnida “qonun”, “modda” yoki “konstitutsiya” bo‘lsa ham so‘rov hech qachon huquqiy RAG ga o‘tkazilmaydi: aynan bitta oddiy LLM javobi qaytadi, qidiruvsiz va manbasiz. `mode="legal"` NHH korpusidan qidiradi va faqat tasdiqlangan manba asosida javob beradi; yetarli dalil bo‘lmasa boshqa qonunni manba sifatida ko‘rsatmasdan “yetarli huquqiy asos topilmadi” deb javob beradi. Avtomatik intent aniqlash faqat alohida `mode="auto"` rejimida ishlaydi.
+```mermaid
+flowchart TD
+    Q[Savol] --> M{Rejim}
+    M -- umumiy --> G[LLM: bitta javob, qidiruvsiz, manbasiz]
+    M -- huquqiy --> D{Deterministik yo‘l?}
+    D -- "ulush 45% bo‘lsa…", "nechta modda", "qaysi modda", rahbar analitikasi --> DA[Bazadan hisoblangan javob, LLMsiz]
+    D -- yo‘q --> E[BGE-M3 embedding]
+    E --> R[pgvector: semantik + leksik + huquqiy niyat reytingi]
+    R --> F[Mavzu filtri, modda dedup, ruxsat filtri]
+    F --> C[Cheklangan kontekst, backend bergan citation raqamlari]
+    C --> L[LLM: tuzilmali javob bloklari]
+    L --> V{Grounding tekshiruvi}
+    V -- o‘tdi --> A[Javob + manba kartochkalari]
+    V -- shakl xatosi --> L
+    V -- fakt xatosi --> X[Faqat tekshirilgan asl parchalar]
+```
 
-## Talablar
+### Komponentlar
 
-- Python 3.11 yoki 3.12
-- Node.js 20+
-- Docker va Docker Compose (PostgreSQL/pgvector uchun tavsiya etiladi)
-- Lokal vLLM (OpenAI-mos endpoint) yoki Groq API kaliti
-- BGE-M3 ni birinchi ishga tushirishda yuklash uchun internet, so‘ng model lokal keshdan ishlaydi
+| Qatlam | Fayl(lar) | Vazifa |
+|---|---|---|
+| Web interfeys | `frontend/src/App.tsx`, `api.ts` | Sahifalar, rollarga mos menyu, xavfsiz Markdown render, manba kartochkalari |
+| Backend API | `backend/app/api.py`, `security.py`, `main.py` | REST endpointlar, JWT, rollar tekshiruvi, kirish cheklovi, audit jurnali |
+| AI Agent | `services/ai_agent.py` | Savolni yo‘naltiradi: deterministik javob → RAG → LLM → grounding → fallback |
+| RAG | `services/rag.py` | Modda darajasida chunking, BGE-M3 embedding, pgvector gibrid qidiruv, lotin/kirill moslashtirish |
+| Grounding | `services/grounding.py` | Modda, raqam, sana, iqtibos, hujjat nomi va citation dalil bilan solishtiriladi |
+| Deterministik javoblar | `services/legal_facts.py`, `analytics.py` | Sonli mezonlar, moddalar ro‘yxati, modda soni, rahbar dashboard |
+| LLM qatlami | `services/llm.py` | Bitta OpenAI-mos klient: vLLM yoki Groq, model puli, 429 failover, sxema degradatsiyasi |
+| Hujjatlar | `services/documents.py`, `document_qa.py`, `document_analysis.py` | Parsing, turini tekshirish, hujjat bo‘yicha savol, qarama-qarshilik tahlili |
+| Loyihalar | `services/drafting.py`, `export.py` | Javob xati tuzilmasi, validatsiya, rasmiy DOCX (rekvizitlar, QORALAMA belgisi) |
+| Ma’lumotlar | `models.py`, `alembic/` | Foydalanuvchilar, hujjatlar, NHH, chunklar (vektorlar), tarix, topshiriqlar, audit |
 
-## Sozlash
+### Nima uchun javoblar ishonchli
+
+- **Citation raqamlarini model emas, backend beradi.** Manbalar oldindan deduplikatsiya qilinib raqamlanadi; model faqat shu raqamlarni ishlatishi mumkin. Mavjud bo‘lmagan raqam javobni yiqitadi.
+- **Grounding tekshiruvi.** Javobdagi har bir modda raqami, son (shu jumladan «qirq foiz», «30 000» kabi yozuvlar), sana, iqtibos va hujjat nomi manba matnida borligi tekshiriladi. Shakl xatosi bo‘lsa bir marta tuzatish so‘raladi, fakt xatosi bo‘lsa darhol tekshirilgan asl parchalarga o‘tiladi.
+- **Rasmiy ro‘yxatlar to‘liq beriladi.** Manbada raqamlangan ro‘yxat bo‘lsa (ustun mavqe mezonlari, jarima stavkalari), model javobi har bir bandni qamrab olgani tekshiriladi; tushib qolgan band manbadan so‘zma-so‘z qo‘shiladi.
+- **Modda sarlavhalari qat’iy aniqlanadi.** Qonunning o‘zgartirish kirituvchi moddalari ichida iqtibos keltirilgan boshqa kodeks moddalari shu qonunning moddasi sifatida indekslanmaydi.
+- **Bazada bo‘lmagan hujjat haqida javob berilmaydi.** «Konstitutsiyaning 1-moddasi» kabi savolga boshqa qonunning 1-moddasi ko‘rsatilmaydi — «yetarli huquqiy asos topilmadi» qaytadi.
+- **Rejim — shartnoma.** «Umumiy savol» rejimida savol hech qachon huquqiy RAG ga o‘tkazilmaydi, «Huquqiy qidiruv» rejimida faqat tasdiqlangan manba asosida javob beriladi.
+
+---
+
+## Tez boshlash
+
+### Talablar
+
+- Python 3.11 yoki 3.12, Node.js 20+
+- PostgreSQL 16+ va `pgvector` kengaytmasi (Docker yoki lokal)
+- LLM: Groq API kaliti ([console.groq.com](https://console.groq.com), bepul reja yetarli) **yoki** o‘z serveringizdagi vLLM
+- Birinchi ishga tushirishda BGE-M3 modelini (~2 GB) yuklab olish uchun internet
+
+### 1. Repozitoriy va sozlamalar
 
 ```bash
+git clone https://github.com/VohidovTohirjon/Antimonopoliya.git
+cd Antimonopoliya
 cp .env.example .env
 ```
 
-`.env` ichida kamida quyidagilarni to‘ldiring:
+`.env` da kamida quyidagilarni to‘ldiring:
 
 ```env
-SECRET_KEY=kamida-32-belgili-tasodifiy-maxfiy-qiymat
-GROQ_API_KEY=groq-api-kalitingiz
-GROQ_MODEL=
-GROQ_MODELS=openai/gpt-oss-120b,qwen/qwen3.6-27b,openai/gpt-oss-20b,groq/compound,groq/compound-mini
+SECRET_KEY=<openssl rand -hex 32 natijasi>
+LLM_PROVIDER=groq
+GROQ_API_KEY=<groq kalitingiz>
 ```
 
-## LLM provayder
+### 2. PostgreSQL + pgvector
 
-Ilova bir vaqtning o‘zida bitta OpenAI-mos `chat/completions` endpointi bilan ishlaydi. vLLM va Groq faqat base URL, kalit, model puli va bir nechta so‘rov nuansi bilan farq qiladi, shuning uchun ikkalasi ham bitta `OpenAICompatibleProvider` klassi orqali ishlaydi (`app/services/llm.py`). RAG, grounding, citation va validatsiya qatlamlari qaysi provayder javob berganini bilmaydi.
-
-`LLM_PROVIDER=local` bo‘lganda lokal server **asosiy** hisoblanadi. Groq faqat `LLM_FALLBACK_ENABLED=true` bo‘lgandagina va faqat lokal server xato qaytargandan keyin ishlatiladi — avtomatik emas.
-
-Lokal serverga moslashuv nuanslari provayder profilida saqlanadi: vLLM `max_tokens` kutadi (Groq `max_completion_tokens`), Groq’ning `include_reasoning`/`reasoning_effort` kalitlari lokal serverga yuborilmaydi, va agar server strict `json_schema` formatini rad etsa, so‘rov bir marta oddiy `json_object` rejimida qayta yuboriladi (bitta modelli serverda failover uchun sherik yo‘q).
-
-### Kechikishni kamaytirish qoidalari
-
-Har bir so‘rov turi o‘z completion budjetiga ega — qisqa chat javobi ko‘p sahifali rasmiy loyiha bilan bir xil decode budjetini band qilmaydi. gpt-oss uchun `reasoning_effort=low` yuboriladi va fikrlash matni foydalanuvchiga hech qachon ko‘rsatilmaydi (faqat `content` o‘qiladi).
-
-Grounding validatsiyasidan o‘tmagan javob endi ikki xil ko‘riladi. Uydirilgan modda, citation, raqam, sana, iqtibos yoki hujjat identifikatori — bu **faktik** xato: ikkinchi generatsiya qilinmaydi, darhol tekshirilgan ekstraktiv javobga o‘tiladi (tezroq ham, xavfsizroq ham). Faqat format/sxema darajasidagi xato (citation qo‘yilmagan, blok tuzilmasi buzilgan) bitta tuzatish chaqirig‘iga arziydi.
-
-Umumiy savol vektor qidiruv, huquqiy filtr, modda deduplikatsiyasi va groundingni umuman ishga tushirmaydi — huquqiy niyat aniqlangandagina RAG yo‘liga o‘tiladi. Deterministik yo‘llar (arifmetika, aniq hujjat faktlari, 40% kabi qonuniy chegaralar) LLMsiz ishlaydi.
-
-`GROQ_MODELS` vergul bilan ajratilgan priority ro‘yxatidir. Birinchi model 429 rate-limit qaytarsa, backend `retry-after` muddatiga uni cooldown holatiga qo‘yib, shu so‘rovning o‘zida keyingi modelga o‘tadi. Muddat tugagach yuqori priority model avtomatik qayta ishlatiladi. Eski `GROQ_MODEL` qiymati berilsa, u ro‘yxatning boshiga qo‘yiladi. `GROQ_API_KEY` frontendga uzatilmaydi. Ishlab chiqarishda `DATABASE_URL`, PostgreSQL paroli, `DATA_DIR` va `CORS_ORIGINS` ham xavfsiz muhitga moslashtirilishi shart.
-
-Asosiy o‘zgaruvchilar:
-
-| O‘zgaruvchi | Vazifasi |
-|---|---|
-| `DATABASE_URL` | PostgreSQL ulanish satri |
-| `SECRET_KEY` | JWT imzolash kaliti, kamida 32 belgi |
-| `LLM_PROVIDER` | `local` (o‘z vLLM serveringiz) yoki `groq`. Standart: `groq` |
-| `LLM_FALLBACK_ENABLED` | Zaxira provayderni yoqadi. Standart `false` — zaxira hech qachon avtomatik ishlatilmaydi |
-| `LLM_FORCE_UNAVAILABLE` | Diagnostika uchun barcha provayderlarni o‘chiradi |
-| `LOCAL_LLM_BASE_URL` | Lokal OpenAI-mos endpoint, `/v1` bilan tugaydi |
-| `LOCAL_LLM_API_KEY` | vLLM `--api-key` bilan ishga tushirilgan bo‘lsa; aks holda bo‘sh |
-| `LOCAL_LLM_MODEL` | Asosiy lokal model, masalan `openai/gpt-oss-20b` |
-| `LOCAL_LLM_MODELS` | Ixtiyoriy qo‘shimcha modellar, vergul bilan |
-| `LOCAL_LLM_TIMEOUT_SECONDS` | Lokal server uchun timeout; standart `120` |
-| `LOCAL_LLM_MAX_TOKENS` | Lokal completion budjeti; standart `3200` |
-| `LOCAL_LLM_STRICT_SCHEMA` | `json_schema` structured output ishlatiladimi; standart `true` |
-| `LOCAL_LLM_REASONING_EFFORT` | gpt-oss fikrlash chuqurligi; standart `low`. Sifat yetmasa `medium` |
-| `LLM_MAX_TOKENS_GENERAL` | Umumiy chat budjeti; standart `512` |
-| `LLM_MAX_TOKENS_LEGAL` | Huquqiy javob budjeti; standart `1024` |
-| `LLM_MAX_TOKENS_DOCUMENT` | Hujjat tahlili budjeti; standart `1024` |
-| `LLM_MAX_TOKENS_DRAFTING` | Rasmiy loyiha/DOCX budjeti; standart `3200` |
-| `GROQ_API_KEY` | Serverdagi Groq API kaliti |
-| `GROQ_MODEL` | Ixtiyoriy eski bitta-model override; berilsa eng yuqori priority bo‘ladi |
-| `GROQ_MODELS` | 5 ta Groq model/system priority ro‘yxati va avtomatik failover |
-| `GROQ_FORCE_UNAVAILABLE` | Faqat UAT/diagnostika uchun provayderni majburan o‘chirish; standart `false` |
-| `GROQ_MAX_TOKENS` | Javob/DOCX loyihasi uzilib qolmasligi uchun completion budjeti; standart `3200` |
-| `EMBEDDING_MODEL` | Standart: `BAAI/bge-m3` |
-| `EMBEDDING_BACKEND` | Ishlab chiqarishda `sentence_transformers` |
-| `EMBEDDING_DIMENSIONS` | BGE-M3 uchun `1024`; migratsiya bilan bir xil bo‘lishi kerak |
-| `EMBEDDING_WARMUP_ON_STARTUP` | Modelni server startida bloklamasdan fon rejimida tayyorlash |
-| `RETRIEVAL_MIN_SCORE` | Yetarli dalil bo‘lmagan qidiruvni rad etish chegarasi; standart `0.48` |
-| `RETRIEVAL_CANDIDATE_LIMIT` | Semantik + kalit so‘zli gibrid saralash uchun nomzodlar soni |
-| `DATA_DIR` | Himoyalangan fayllar katalogi |
-| `CORS_ORIGINS` | Ruxsat etilgan frontend manzillari, vergul bilan |
-| `LOCAL_SEED_PASSWORD` | **Faqat development.** Lokal seed *yangi* yaratadigan hisoblar paroli; standart `12345678`. Mavjud hisob paroliga hech qachon tegmaydi. Productionda o‘rnatilmasin |
-| `VITE_API_URL` | Frontend foydalanadigan backend manzili |
-
-## PostgreSQL va pgvector
-
-Docker Desktop yoki Docker daemon ishlayotganida:
+**A varianti — Docker:**
 
 ```bash
-docker compose up -d db
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d db
 ```
 
-Compose `pgvector/pgvector:pg16` tasviridan foydalanadi va `vector` kengaytmasini migratsiya yaratadi. Mavjud PostgreSQL ishlatilsa, foydalanuvchi `CREATE EXTENSION vector` huquqiga ega bo‘lishi kerak.
-
-## Backend
+**B varianti — lokal PostgreSQL (macOS, Homebrew):**
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
+brew install postgresql@18 pgvector && brew services start postgresql@18
+psql postgres -c "CREATE USER raqobat WITH PASSWORD 'raqobat' CREATEDB;" -c "CREATE DATABASE raqobat OWNER raqobat;"
+```
+
+`.env` dagi `DATABASE_URL` standart holda `postgresql+psycopg://raqobat:raqobat@localhost:5432/raqobat` ga ishora qiladi.
+
+### 3. Backend
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements.txt
 cd backend
 alembic upgrade head
 python -m app.cli --username admin --password 'mustahkam-parol' --full-name 'Tizim administratori'
+python scripts/import_nhh.py --admin-username admin      # rasmiy qonunni bazaga yuklaydi
 uvicorn app.main:app --reload --port 8000
 ```
 
-API hujjatlari: `http://localhost:8000/api/docs`.
+API hujjatlari: `http://localhost:8000/api/docs`. Server ochilishi embedding modelini kutmaydi: login darhol ishlaydi, model fon rejimida tayyorlanadi (`/api/health` → `embedding: ready`).
 
-Server ochilishi embedding modelining yuklanishini kutmaydi: health, login va reload darhol ishlaydi, model fon rejimida tayyorlanadi. Oddiy AI sahifasida faqat “tayyor/tayyorlanmoqda” holati ko‘rsatiladi; model, provider va indeks diagnostikasi faqat Administrator panelida. Birinchi o‘rnatishda model katta bo‘lgani uchun yuklash davom etishi mumkin, ammo sayt qotib qolmaydi.
-
-Administrator CLI buyrug‘i parolni bcrypt bilan xeshlab saqlaydi va bir xil loginni takroran yaratmaydi. Ochiq ro‘yxatdan o‘tish yo‘q.
-
-CLI buyrug‘i faqat administratorni birinchi marta yaratish yoki uning nom/parolini ataylab yangilash kerak bo‘lganda bajariladi. Oddiy backend startida uni qayta yozish shart emas.
-
-## Frontend
-
-Boshqa terminalda, loyiha ildizidan:
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -135,169 +166,184 @@ npm install
 npm run dev
 ```
 
-Interfeys: `http://localhost:5173`. Port band bo‘lsa Vite boshqa portga yashirin o‘tmaydi; avval eski frontend jarayonini to‘xtating. Production build:
+Interfeys: `http://localhost:5173`.
+
+### Bitta buyruq bilan (macOS)
 
 ```bash
-cd frontend
-npm run build
+./local-demo.sh          # bazani, backendni va frontendni ko‘taradi
+./local-demo.sh status   # holat
+./local-demo.sh stop     # to‘xtatish
 ```
+
+Skript lokal PostgreSQL bo‘lsa uni, bo‘lmasa Docker'ni ishlatadi. Loglar `tmp/local-demo/` ichida.
+
+---
+
+## Konfiguratsiya
+
+Barcha sozlamalar `.env` orqali beriladi (`backend/app/config.py`). Eng muhimlari:
+
+| O‘zgaruvchi | Vazifasi | Standart |
+|---|---|---|
+| `SECRET_KEY` | JWT imzolash kaliti, kamida 32 belgi | — (majburiy) |
+| `DATABASE_URL` | PostgreSQL ulanish satri | `postgresql+psycopg://raqobat:raqobat@localhost:5432/raqobat` |
+| `LLM_PROVIDER` | `local` (o‘z vLLM serveringiz) yoki `groq` | `groq` |
+| `LLM_FALLBACK_ENABLED` | Ikkinchi provayderga avtomatik o‘tish | `false` |
+| `LOCAL_LLM_BASE_URL` / `LOCAL_LLM_MODEL` | vLLM endpointi (`/v1` bilan) va model | `openai/gpt-oss-20b` |
+| `GROQ_API_KEY` / `GROQ_MODELS` | Groq kaliti va priority ro‘yxati (429 bo‘lsa keyingisiga o‘tadi) | `openai/gpt-oss-120b,…` |
+| `GROQ_REASONING_EFFORT` | gpt-oss fikrlash chuqurligi | `low` |
+| `CONTEXT_MAX_CHARS` | LLM ga beriladigan manba matni chegarasi | `18000` (Groq bepul reja uchun `9000` tavsiya) |
+| `LLM_MAX_TOKENS_GENERAL/LEGAL/DOCUMENT/DRAFTING` | So‘rov turiga qarab completion byudjeti | `512/1024/1024/3200` (umumiy rejim uchun `1800` tavsiya) |
+| `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` | Embedding modeli va o‘lchami | `BAAI/bge-m3` / `1024` |
+| `EMBEDDING_HALF_PRECISION` | MPS/CUDA da float16 (xotira ikki baravar kam) | `true` |
+| `RETRIEVAL_MIN_SCORE` | Yetarli dalil bo‘lmagan qidiruvni rad etish chegarasi | `0.48` |
+| `ALLOW_EXTERNAL_CONFIDENTIAL_AI` | Maxfiy/idoraviy matnni tashqi LLM ga yuborishga ruxsat | `false` |
+| `DATA_DIR` | Yuklangan fayllar katalogi | `data` |
+| `CORS_ORIGINS` | Ruxsat etilgan frontend manzillari | localhost:5173 |
+| `VITE_API_URL` | Frontend chaqiradigan backend manzili | `http://localhost:8000` (Nginx orqali bo‘sh) |
+| `LOCAL_SEED_PASSWORD` | **Faqat development.** Lokal seed yaratadigan hisoblar paroli | `12345678` |
+
+**Groq bepul rejasi haqida.** Har bir model uchun daqiqasiga ~8000 token limiti bor. `CONTEXT_MAX_CHARS=9000` va `GROQ_REASONING_EFFORT=low` bilan bitta huquqiy so‘rov 0,7–3 ming token sarflaydi. Limit tugasa backend avtomatik keyingi modelga o‘tadi, barcha modellar band bo‘lsa 30 soniyagacha kutib qayta urinadi. Tasdiqlangan javoblar 24 soat keshlanadi (`data/answer_cache.json`), NHH qayta indekslanganda kesh tozalanadi.
+
+---
+
+## Xavfsizlik
+
+Texnik topshiriqning 7-bo‘limi talablari va ularning bajarilishi:
+
+| Talab | Amalga oshirilishi |
+|---|---|
+| Login va parol orqali autentifikatsiya | bcrypt xesh, JWT (HS256), `token_version` orqali sessiyani bekor qilish (parol/rol o‘zgarganda, logout) |
+| Rollarga asoslangan kirish nazorati | Har bir endpoint backend darajasida `require_roles` bilan tekshiriladi; frontend faqat ko‘rinishni cheklaydi |
+| Harakatlarni jurnalga yozish | Har bir API so‘rovi `audit_logs` jadvaliga foydalanuvchi, metod, yo‘l va holat kodi bilan yoziladi |
+| Hujjatlarga kirishni cheklash | «Maxfiy hujjat» faqat egasi va administratorga ko‘rinadi; RAG qidiruvi ham shu filtrni SQL darajasida qo‘llaydi |
+| API kalitlari frontendda saqlanmaydi | Barcha kalitlar faqat serverdagi `.env` da; frontend faqat JWT bilan ishlaydi |
+| Maxfiy hujjatlar tashqi AI ga yuborilmaydi | Maxfiy va «Idoraviy (ichki)» hujjat matni tashqi provayderga ketmaydi, lokal ekstraktiv oqimda ishlanadi |
+| Parol tanlashdan himoya | Bitta hisob uchun 8 ta xato urinishdan so‘ng 5 daqiqa blok, IP uchun 30 ta; mavjud bo‘lmagan login uchun ham parol tekshiruvi bajariladi (vaqt orqali hisobni aniqlab bo‘lmaydi) |
+| Fayl xavfsizligi | Kengaytmaga ishonilmaydi: PDF sarlavhasi va Office ZIP tuzilmasi tekshiriladi; hajm chegarasi; matnsiz (skanerlangan) fayl rad etiladi |
+
+**Repozitoriy gigiyenasi.** `.env`, `.env.*` (namunalardan tashqari), `data/`, `tmp/`, `.claude/` va shaxsiy fayllar `.gitignore` da. Haqiqiy kalitlar hech qachon commit qilinmaydi — faqat `.env.example` va `.env.production.example` (placeholder qiymatlar bilan). Kalit tasodifan oshkor bo‘lsa, uni provayder panelida darhol bekor qiling.
+
+`SECRET_KEY` yaratish:
+
+```bash
+openssl rand -hex 32
+```
+
+Productionda `LOCAL_SEED_PASSWORD` ni o‘rnatmang va seed hisoblaridan foydalanmang; foydalanuvchilarni Administrator paneli orqali yarating.
+
+---
+
+## Rollar va amaliy oqim
+
+| Rol | Huquqlari |
+|---|---|
+| **Administrator** | Barcha funksiyalar, foydalanuvchilar va rollar, NHH bazasi, tashkilot profili, audit |
+| **Rahbar** | Boshqaruv paneli, AI chat, hujjat tahlili, hisobot va ma’lumotnomalar, topshiriq yaratish va nazorat |
+| **Xodim** | AI chat, hujjat yuklash va tahlil, hujjat loyihalari, o‘z topshiriqlari va o‘z AI tarixi |
+
+Xodim yoki rahbar bitta oynada:
+
+1. savol beradi — javob manbasi (hujjat, modda, havola, parcha) bilan keladi;
+2. PDF/DOCX/XLSX yuklaydi va qisqacha mazmun, asosiy bandlar, savol-javob yoki qarama-qarshilik tahlilini oladi;
+3. «Ushbu murojaatga javob xatini tayyorla» deb loyiha tayyorlaydi — tizim murojaatni tahlil qiladi, tegishli NHHni topadi va huquqiy asoslarni ko‘rsatadi;
+4. natijani DOCX sifatida yuklab oladi: **Qoralama DOCX** (rekvizitlar to‘ldirilmagan bo‘lsa, `QORALAMA` belgisi bilan), **Rasmiy DOCX** (tashkilot profili va rekvizitlar to‘liq bo‘lganda) va **Ichki dalillar** (citation va NHH mappingi alohida xizmat hujjatida).
+
+Rahbar qo‘shimcha ravishda «Bugungi kun uchun asosiy muammolarni ko‘rsat» deb so‘rasa, chatning o‘zida besh bo‘limli boshqaruv tahlilini oladi; xodim faqat o‘ziga biriktirilgan topshiriqlar bo‘yicha ko‘radi.
+
+---
+
+## Loyiha tuzilmasi
+
+```
+backend/
+  app/
+    api.py               REST endpointlar
+    security.py          JWT, parol xeshi, kirish cheklovi
+    main.py              FastAPI ilova, CORS, audit middleware
+    config.py            .env sozlamalari
+    models.py, schemas.py
+    services/
+      ai_agent.py        AI Agent: yo‘naltirish, grounding, fallback
+      rag.py             chunking, embedding, pgvector gibrid qidiruv
+      grounding.py       dalil tekshiruvi, ekstraktiv fallback, transliteratsiya
+      legal_facts.py     deterministik huquqiy javoblar
+      legal_intent.py    huquqiy tushunchalar (ustun mavqe, kelishuv, savdolar…)
+      analytics.py       rahbar analitikasi
+      llm.py             OpenAI-mos provayder qatlami
+      documents.py, document_qa.py, document_analysis.py
+      drafting.py, export.py
+      answer_cache.py
+  alembic/               migratsiyalar
+  scripts/               import_nhh.py, seed_*.py, check_*.py
+  tests/                 172 ta test (SQLite + hash embedding bilan izolyatsiyalangan)
+frontend/                React + TypeScript + Vite
+legal-corpus/            rasmiy NHH fayllari va manifest.json
+sample-data/             namuna hujjatlar
+deploy/                  bitta VM uchun Nginx + Docker deploy
+docker-compose.yml       production compose
+docker-compose.local.yml lokal ishlab chiqish uchun qo‘shimcha
+local-demo.sh            bitta buyruqli lokal ishga tushirish
+```
+
+---
 
 ## Testlar
 
-Testlar tashqi Groq chaqirig‘ini deterministik adapter bilan almashtiradi va SQLite + hash embeddingdan faqat izolatsiyalangan test muhiti sifatida foydalanadi. Ishlab chiqarish konfiguratsiyasi PostgreSQL/pgvector + BGE-M3 bo‘lib qoladi.
+Testlar tashqi LLM chaqiruvini deterministik adapter bilan almashtiradi va SQLite + hash embeddingdan faqat izolyatsiyalangan muhit sifatida foydalanadi.
 
 ```bash
 source .venv/bin/activate
-cd backend
-pip install -r requirements-dev.txt
-pytest -q
+cd backend && pip install -r requirements-dev.txt && pytest -q
 ```
-
-Frontend regression testlari va production build:
 
 ```bash
-cd frontend
-npm test
-npm run build
+cd frontend && npm test && npm run build
 ```
 
-Migratsiyaning PostgreSQL SQL natijasini tekshirish:
-
-```bash
-cd backend
-alembic upgrade head --sql
-```
-
-Ishlayotgan serverdagi rol chegaralarini tekshirish (faqat o‘qiydi, token chop etmaydi). Parollar hech qachon skriptga qattiq yozilmaydi:
+Ishlayotgan serverda rol chegaralarini va huquqiy qidiruv marshrutlarini tekshirish:
 
 ```bash
 cd backend
 RBAC_CHECK_XODIM_PASSWORD=... RBAC_CHECK_RAHBAR_PASSWORD=... python scripts/check_rbac_api.py --base-url http://127.0.0.1:8000
-```
-
-Huquqiy qidiruv marshrutlarini deterministik tekshirish (ustun mavqe → 13-modda, suiiste’mol → 18-modda, kelishuvlar → 19-modda, savdolar → 29-modda):
-
-```bash
-cd backend
 python scripts/check_retrieval.py --username admin
 ```
 
-## Qo‘llab-quvvatlanadigan hujjatlar
+---
 
-- PDF — sahifalar bo‘yicha matn ajratiladi.
-- DOCX — paragraflar va jadvallar o‘qiladi.
-- XLSX — varaqlar va mazmunli katak qatorlari o‘qiladi.
+## Production deploy
 
-Backend faqat kengaytmaga ishonmaydi: PDF sarlavhasi va Office ZIP ichki tuzilmasi tekshiriladi. Bo‘sh, buzilgan, turi mos kelmagan yoki hajm chegarasidan oshgan fayl rad etiladi.
-
-## Rollar
-
-- **Administrator** — barcha talab qilingan funksiyalar, foydalanuvchilar va rollar ko‘rinishi, NHH yuklash/metadata/qayta indekslash/o‘chirish, AI tarixi va audit.
-- **Rahbar** — dashboard, AI chat, hujjat tahlili, hisobot/ma’lumotnoma, topshiriq yaratish va monitoring.
-- **Xodim** — AI chat, hujjat yuklash va tahlil, hujjat loyihalari, o‘z topshiriqlari va o‘z AI tarixi.
-
-Rollar backend endpointlarida tekshiriladi. Oddiy hujjat ichki jamoa uchun umumiy ko‘rinadi; “Maxfiy hujjat” belgisi qo‘yilgan faylni esa faqat egasi va administrator ko‘ra, yuklay va tahlil qila oladi. RAG qidiruvi ham ayni ruxsat filtrini SQL darajasida qo‘llaydi, shuning uchun boshqa xodimning maxfiy chunklari kontekstga kirmaydi.
-
-## Amaliy oqim
-
-1. Administrator NHH faylini nomi, turi va manba havolasi bilan yuklaydi.
-2. Rahbar yoki xodim PDF/DOCX/XLSX fayl yuklaydi.
-3. Hujjat sahifasida qisqacha mazmun, asosiy bandlar, savol-javob yoki qarama-qarshilik tahlilini tanlaydi.
-4. AI yordamchida huquqiy savol beradi; javob bilan hujjat nomi, modda/band, havola va foydalanilgan parcha ko‘rinadi.
-5. Hujjat loyihalari bo‘limida javob xati, hisobot, ma’lumotnoma, qisqa ma’lumot yoki tahliliy xulosa tayyorlaydi.
-6. Natijani haqiqiy DOCX fayl sifatida yuklaydi; operatsiya AI tarixida saqlanadi.
-
-Javob xati uchun eksport ikki qatlamga ajratilgan:
-
-- `Qoralama DOCX` — to‘ldirilmagan rasmiy maydonlarni ochiq placeholder va `QORALAMA` belgisi bilan beradi;
-- `Rasmiy DOCX` — faqat tashkilot rekvizitlari, qabul qiluvchi, sana va chiqish raqami to‘liq bo‘lganda ochiladi;
-- `Ichki dalillar` — citation, NHH, modda/band va rasmiy URL mappingini alohida xizmat hujjatida saqlaydi.
-
-Tashqi xatda `[1]`, `[2]` kabi ichki RAG belgilari chiqarilmaydi. Huquqiy norma NHH metama’lumotidan formal nom bilan yoziladi. Tashkilot nomi, ikkinchi tildagi nom, yuqori turuvchi tashkilot, bo‘lim, manzil, aloqa, STIR/INN, logo, chiqish prefiksi, imzolovchi hamda ixtiyoriy letterhead/footer, verifikatsiya/barcode qiymatlari Administrator panelidagi `Tashkilot profili`dan olinadi; eksport kodida hardcode qilinmaydi.
-
-NHH bazasida yetarli mos manba bo‘lmasa, huquqiy javob yoki javob xati uchun tizim asos topilmaganini aytadi va soxta manba yaratmaydi.
-
-Huquqiy qidiruv Lotin yozuvidagi savollar bilan Kirill yozuvidagi rasmiy NHH matnlarini ham gibrid (semantik + kalit so‘z) usulida moslashtiradi. NHH bazasi bo‘sh bo‘lsa, tizim modelni behuda ishga tushirmaydi va administratorga hujjat yuklash bo‘yicha aniq ko‘rsatma beradi.
-
-Groq sozlanmagan yoki vaqtincha javob bermagan holatda huquqiy qidiruv ishlashda davom etadi. Tanilgan huquqiy mavzular uchun routing, to‘liq modda dalili, tuzilmali faktlar, raqamli mezonlar va citationlar provayderdan mustaqil tayyorlanadi. Umumiy savollar va qo‘shimcha generativ imkoniyatlar uchun amaldagi Groq kaliti hamda model nomi talab qilinadi. `GROQ_FORCE_UNAVAILABLE=true` faqat UAT/diagnostika jarayonida shu chegarani tekshirish uchun mo‘ljallangan.
-
-Maxfiy hujjat va `Idoraviy (ichki) hujjat` matni server tomonda tashqi AI adapteriga uzatilmaydi. Standart siyosat `ALLOW_EXTERNAL_CONFIDENTIAL_AI=false`; bunday material deterministic/extractive lokal oqimda qayta ishlanadi yoki lokal imkoniyat yetarli bo‘lmasa aniq qo‘llab-quvvatlanmagan holat qaytariladi. Ushbu bayroq faqat tashkilotning hujjatlashtirilgan, vakolatli qarori bilan yoqilishi kerak. Ochiq NHH uchun tasdiqlangan rasmiy URL majburiy, ichki NHH uchun esa tashqi URL ixtiyoriy.
-
-Provider xatolari bir xil `502`ga yashirilmaydi: rate limit `429`, timeout `504`, autentifikatsiya/model yoki vaqtinchalik upstream nosozligi foydalanuvchiga xavfsiz va aniq xizmat xabari bilan qaytariladi. Bo‘sh, noto‘g‘ri formatdagi yoki token chegarasida uzilgan completion muvaffaqiyat hisoblanmaydi. `openai/gpt-oss-*` modellari uchun reasoning past darajada va foydalanuvchi javobidan alohida boshqariladi.
-
-Huquqiy javob va javob xatidagi `[1]`, `[2]` kabi raqamlar model tomonidan erkin belgilanmaydi. Backend manbalarni oldindan deduplikatsiya qilib raqamlaydi va modelga faqat shu raqamlarni beradi. Mavjud bo‘lmagan raqam javobni groundingdan yiqitadi; u shunchaki matndan o‘chirilib, qolgan gap tasdiqlanmaydi. Frontend faqat yakuniy javobda citation qilingan manbalarni ayni backend raqami bilan ko‘rsatadi. AI javobi va tarix xavfsiz Markdown/GFM rendererida ko‘rsatiladi; xom HTML bajarilmaydi.
-
-## Production deploy (bitta VM)
-
-To'liq qadamma-qadam yo'riqnoma: **[deploy/README.md](deploy/README.md)**.
+Bitta VM, Nginx yagona ochiq port, PostgreSQL va backend ichki tarmoqda, vLLM host'da. To‘liq yo‘riqnoma: **[deploy/README.md](deploy/README.md)**.
 
 ```bash
-cp .env.production.example .env   # va qiymatlarni to'ldiring
+cp .env.production.example .env   # qiymatlarni to‘ldiring
 ./deploy/deploy.sh
 ```
 
-`APP_ENV=production` bo'lganda backend ishga tushishdan oldin konfiguratsiyani
-tekshiradi: `LLM_PROVIDER` aniq ko'rsatilmagan bo'lsa yoki lokal provayder uchun
-`LOCAL_LLM_BASE_URL`/`LOCAL_LLM_MODEL` bo'sh bo'lsa, **ishga tushmaydi**. Bu
-tasodifan tashqi provayderga o'tib ketishning oldini oladi.
+`APP_ENV=production` bo‘lganda backend ishga tushishdan oldin konfiguratsiyani tekshiradi: `LLM_PROVIDER` aniq ko‘rsatilmagan yoki lokal provayder uchun `LOCAL_LLM_BASE_URL`/`LOCAL_LLM_MODEL` bo‘sh bo‘lsa, **ishga tushmaydi**. Bu tasodifan tashqi provayderga o‘tib ketishning oldini oladi.
 
-## Rasmiy huquqiy korpus
+---
 
-`legal-corpus/` katalogida rasmiy NHH fayllari va `manifest.json` saqlanadi.
-Korpus admin UI bilan bir xil parsing/indekslash yo'lidan import qilinadi:
+## Rasmiy korpus va namuna ma’lumotlar
+
+`legal-corpus/` katalogida rasmiy NHH fayllari va `manifest.json` (nom, turi, rasmiy raqam, lex.uz havolasi) saqlanadi. Import admin UI bilan bir xil parsing va indekslash yo‘lidan o‘tadi va idempotent:
 
 ```bash
-cd backend && python scripts/import_nhh.py --admin-username admin
+cd backend && python scripts/import_nhh.py --admin-username admin        # import
+cd backend && python scripts/import_nhh.py --status                      # holat
 ```
 
-```bash
-cd backend && python scripts/import_nhh.py --status
-```
-
-`--status` hujjatlar soni, parchalar soni va faol/indekslangan hujjatlar sonini
-ko'rsatadi. Buyruq idempotent: mavjud hujjat qayta import qilinmaydi
-(`--reindex` bilan majburan qayta indekslash mumkin).
-
-## Operatsion namuna ma’lumotlari
-
-Seed faqat aniq development bayrog‘i bilan ishlaydi va production startida avtomatik chaqirilmaydi:
-
-```bash
-source .venv/bin/activate
-cd backend
-python scripts/seed_operational_data.py --confirm-development --admin-username admin
-```
-
-Seed **faqat o‘zi yaratadigan** yangi hisoblarga parol beradi. Parol manbai, ustuvorlik tartibida:
-
-1. `--seed-password <parol>` argumenti;
-2. `LOCAL_SEED_PASSWORD` muhit o‘zgaruvchisi;
-3. standart qiymat — `12345678`.
-
-Fresh local/dev seed hisoblari (standart parol bilan):
-
-- `rahbar_analitika` / `12345678`
-- `xodim_huquq` / `12345678`
-
-**FAQAT DEVELOPMENT UCHUN.** Bu sodda parol faqat `--confirm-development` bilan ataylab ishga tushiriladigan lokal namuna uchun. Allaqachon mavjud hisobning parol hashi seed qayta bajarilganda ham, migratsiya paytida ham hech qachon o‘zgartirilmaydi — administrator qo‘ygan parol saqlanib qoladi (buni `test_institutional_letter.py` regressiya testlari qulflab qo‘yadi). Productionda `LOCAL_SEED_PASSWORD` ni umuman o‘rnatmang va bu hisoblardan foydalanmang; foydalanuvchilarni Administrator paneli orqali tashkilot siyosatiga mos vaqtinchalik parol bilan yarating va secretlarni boshqariladigan muhitda saqlang.
-
-U real parser va indekslash oqimi orqali `sample-data/` dagi murojaat DOCX, ikki sahifali tahliliy PDF, qarama-qarshi muddatli bayonnoma DOCX va statistik XLSXni yuklaydi. Shuningdek, uchta rol bo‘yicha ish oqimini tekshirish uchun ichki hisoblar va yangi/jarayonda/bajarilgan/kechikkan holatlardagi topshiriqlar yaratadi. Ularning kelib chiqishi UI sarlavhasida emas, faqat ichki `seed_key` metama’lumotida saqlanadi. Buyruq idempotent: takroriy ishga tushirish dublikat yaratmaydi.
-
-Faqat operatsion namuna hujjat va topshiriqlarni tozalash:
-
-```bash
-cd backend
-python scripts/seed_operational_data.py --confirm-development --admin-username admin --reset --reset-only
-```
-
-Namuna ma’lumotlarini qayta yaratish uchun `--reset` bayrog‘ini `--reset-only`siz ishlating.
-
-Groq rate-limit yoki vaqtinchalik nosozlik sabab javob xatini generatsiya qila olmasa, endpoint xato bilan to‘xtab qolmaydi: murojaat va tekshirilgan NHH parchalaridan aniq ogohlantirishli, mas’ul xodim tahriri talab qilinadigan DOCX loyiha tayyorlaydi.
-
-Lex.uz sahifasi skanerlangan PDF bersa, oldindan saqlangan rasmiy HTML sahifani matnli DOCXga aylantirish mumkin:
+Lex.uz sahifasi skanerlangan PDF bersa, saqlangan HTML sahifani matnli DOCXga aylantirish mumkin (tarmoqqa chiqmaydi):
 
 ```bash
 python backend/scripts/lexuz_html_to_docx.py lexuz.html qonun.docx --source-url https://lex.uz/docs/6518381
 ```
 
-Konvertor tarmoqqa chiqmaydi; u faqat berilgan lokal HTML nusxani o‘qiydi. Hosil bo‘lgan DOCX Administrator paneli orqali manba havolasi bilan yuklanadi.
+Operatsion namuna ma’lumotlari (hujjatlar, topshiriqlar, uchta rol bo‘yicha hisoblar) **faqat development** uchun:
+
+```bash
+cd backend && python scripts/seed_operational_data.py --confirm-development --admin-username admin
+```
+
+Seed faqat o‘zi yaratadigan yangi hisoblarga parol beradi (`--seed-password`, `LOCAL_SEED_PASSWORD` yoki standart `12345678`) va mavjud hisob paroliga hech qachon tegmaydi. Tozalash: `--reset --reset-only`.
