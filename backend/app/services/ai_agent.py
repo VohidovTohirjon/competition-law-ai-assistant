@@ -9,15 +9,19 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..models import Chunk, NhhDocument, User
+from . import answer_cache
+from .analytics import analytics_answer, is_analytics_question
 from .llm import llm
-from .legal_facts import deterministic_legal_fact_answer
+from .legal_facts import (deterministic_legal_fact_answer, enumeration_block,
+                          missing_enumeration_items, source_enumeration)
 from .legal_intent import legal_concepts
 from .grounding import (article_label, extractive_document_fallback,
                         extractive_legal_fallback, latin_legal_answer, used_sources,
                         repair_document_citations, validate_cited_answer,
                         validate_legal_answer)
 from .rag import (_has_topical_overlap, _requested_article_number, filter_legal_topic,
-                  legal_lexical_fallback, search_async, sources_from_chunks, clean_excerpt)
+                  legal_lexical_fallback, names_foreign_document, search_async,
+                  sources_from_chunks, clean_excerpt)
 
 
 LEGAL_INTENT_PATTERNS = (
@@ -31,6 +35,7 @@ LEGAL_INTENT_PATTERNS = (
     r"\b(?:норматив\w*|ҳуқуқий\w*|ҳуқуқ\w*|қонун\w*|кодекс\w*|модда\w*|банд\w*|фармон\w*|низом\w*)\b",
 )
 LEGAL_INTENT_RE = re.compile("|".join(LEGAL_INTENT_PATTERNS), re.IGNORECASE)
+APOSTROPHES_TABLE = str.maketrans({"’": "'", "‘": "'", "ʻ": "'", "`": "'", "ʼ": "'"})
 logger = logging.getLogger(__name__)
 
 LEGAL_ANSWER_SCHEMA = {
@@ -39,7 +44,7 @@ LEGAL_ANSWER_SCHEMA = {
     "required": ["answer_blocks"],
     "properties": {
         "answer_blocks": {
-            "type": "array", "minItems": 1, "maxItems": 5,
+            "type": "array", "minItems": 1, "maxItems": 8,
             "items": {
                 "type": "object", "additionalProperties": False,
                 "required": ["text", "source_ids"],
@@ -104,10 +109,62 @@ def _uncovered_compound_sources(question: str, sources: list[dict],
                  if source["citation_number"] not in used)
 
 
-def _friendly_failure(reason: str, _subject: str = "") -> str:
+def _friendly_failure(reason: str, subject: str = "") -> str:
+    evidence = "hujjat parchalari" if subject.startswith("Hujjat") else "huquqiy asoslar"
     if reason in {"provider_unavailable", "rate_limited", "timeout", "truncated"}:
-        return "AI xizmati vaqtincha mavjud emas. Tekshirilgan huquqiy manbalar ko‘rsatildi."
-    return "AI izohi manbalar bilan to‘liq tasdiqlanmagani sababli faqat tekshirilgan huquqiy asoslar ko‘rsatildi."
+        return f"AI xizmati vaqtincha mavjud emas. Tekshirilgan {evidence} ko‘rsatildi."
+    return ("AI izohi manbalar bilan to‘liq tasdiqlanmagani sababli faqat tekshirilgan "
+            f"{evidence} ko‘rsatildi.")
+
+
+GENERAL_SYSTEM_PROMPT = (
+    "Siz O‘zbekiston Respublikasi Raqobatni rivojlantirish va iste’molchilar huquqlarini "
+    "himoya qilish qo‘mitasining ichki AI yordamchisisiz. Sohangiz: raqobat huquqi, "
+    "antimonopol nazorat, murojaatlar bilan ishlash, rasmiy hujjatlar tayyorlash, tahlil va "
+    "boshqaruv masalalari. Xodim yoki rahbarga tajribali mutaxassis kabi to‘liq, aniq va "
+    "amaliy javob bering: avval savolga to‘g‘ridan-to‘g‘ri javob, keyin zarur tushuntirish, "
+    "kerak bo‘lsa qadamlar yoki bandlar ro‘yxati. Markdown (sarlavhachalar, ro‘yxatlar, qalin "
+    "matn) dan o‘qishni osonlashtirish uchun foydalaning. Faqat o‘zbek lotin alifbosida yozing. "
+    "Fakt, raqam, sana, modda raqami yoki hujjat nomini uydirmang; aniq normativ asos kerak "
+    "bo‘lsa, buni «tekshirilgan manba uchun Huquqiy qidiruv rejimidan foydalaning» deb ayting, "
+    "lekin savolga baribir mazmunli javob bering. Javob 150–350 so‘z atrofida bo‘lsin."
+)
+
+LEGAL_SYSTEM_PROMPT = (
+    "Siz Raqobat qo‘mitasining huquqiy yordamchisisiz. Faqat TEKSHIRILGAN MANBALAR bo‘limidagi "
+    "parchalarga tayanib, o‘zbek lotin alifbosida to‘liq, tushunarli va professional javob "
+    "yozing. Tuzilma: (1) savolga to‘g‘ridan-to‘g‘ri javob; (2) huquqiy asos — qaysi modda nima "
+    "deydi, zarur bo‘lsa ro‘yxat shaklida; (3) amaliy izoh yoki chegara (agar manbada bo‘lsa). "
+    "Manbada ro‘yxat (mezonlar, shartlar, taqiqlar, jarimalar) bo‘lsa, uning BARCHA bandlarini "
+    "qamrab oling, birortasini tushirib qoldirmang. Har bir huquqiy da’vodan keyin manba "
+    "identifikatorini bering. Hujjat nomi, raqami, sanasi, modda, band, iqtibos, URL yoki "
+    "citation uydirmang. Manbada so‘z bilan yozilgan sonlarni o‘zgartirmang. Manbada mavjud "
+    "oqibatlarni (taqiqlanishi, haqiqiy emas deb topilishi, sanksiya) albatta bayon qiling, "
+    "lekin manbada aniq yozilmagan jazo, jarima, javobgarlik turi yoki muddatni qo‘shmang: "
+    "bunday ma’lumot bo‘lmasa, «taqdim etilgan manbada ko‘rsatilmagan» deb yozing. Agar manbada "
+    "huquqlar va majburiyatlar alohida ro‘yxat bo‘lsa, ularni aralashtirmang: «Huquqlar:» va "
+    "«Majburiyatlar:» deb ajratib bering. Manbadagi rasmiy atamalarni saqlang. Yetarli asos "
+    "bo‘lmasa buni aniq ayting."
+)
+
+NO_SOURCES_ANSWER = (
+    "Mavjud normativ-huquqiy hujjatlar bazasida ushbu savolga yetarli huquqiy asos "
+    "topilmadi. Savolni aniqroq modda, mavzu yoki hujjat nomi bilan qayta yozing yoxud "
+    "tegishli NHHni bazaga qo‘shing."
+)
+NO_BASIS_RE = re.compile(
+    r"(?:yetarli\s+asos|asos(?:lar)?)\s+(?:yo['‘’ʻ]q|topilmadi|mavjud\s+emas)|"
+    r"ma['‘’ʻ]lumot(?:lar)?\s+(?:yo['‘’ʻ]q|topilmadi|mavjud\s+emas|keltirilmagan)|"
+    r"aniqlash\s+imkoni\s+yo['‘’ʻ]q|javob\s+berish\s+imkoni\s+yo['‘’ʻ]q|"
+    r"manba(?:lar)?da\s+(?:ko['‘’ʻ]rsatilmagan|yo['‘’ʻ]q)",
+    re.IGNORECASE,
+)
+
+
+def _is_no_basis_answer(answer: str) -> bool:
+    """A short reply whose only content is "the sources say nothing about this"."""
+    prose = re.sub(r"\s*\[[0-9, ]+\]", "", answer).strip()
+    return len(prose) <= 200 and bool(NO_BASIS_RE.search(prose))
 
 
 def has_legal_intent(question: str) -> bool:
@@ -123,7 +180,10 @@ def has_legal_intent(question: str) -> bool:
 def _source_identity(chunk: Chunk) -> tuple[str, str]:
     document_id = chunk.nhh_id or chunk.document_id or ""
     article = re.sub(r"\s+", " ", (chunk.article_clause or "").lower()).strip()
-    if article:
+    # Collapsing by heading is right for a law (one article = one source card) but wrong
+    # for an uploaded document, where every chunk under a section heading would be
+    # discarded except the first, hiding most of the document from the analysis.
+    if article and chunk.nhh_id:
         return document_id, article
     words = re.findall(r"\w+", chunk.text.lower(), flags=re.UNICODE)
     return document_id, " ".join(words[:24])
@@ -175,6 +235,79 @@ def prefer_article_starts(db: Session, chunks: list[Chunk]) -> list[Chunk]:
         )
         result.append(first or chunk)
     return result
+
+
+ARTICLE_COUNT_RE = re.compile(
+    r"(?:nechta|necha|qancha)\s+modda|moddalar(?:i)?\s+soni|(?:нечта|неча|қанча)\s+модда|моддалар\s+сони",
+    re.IGNORECASE,
+)
+ARTICLE_HEADING_RE = re.compile(r"^\s*(\d{1,3})\s*[-‐‑‒–—.]?\s*(?:modda|модда|статья)\b", re.IGNORECASE)
+
+
+def article_count_answer(db: Session, question: str) -> tuple[str, list[dict]] | None:
+    """"Nechta modda bor?" is answered by counting the indexed headings, not by the LLM.
+
+    Answered only when the corpus makes the question unambiguous: a single active
+    law, or a law the question names by title token overlap.
+    """
+    normalized = question.translate(APOSTROPHES_TABLE).lower()
+    if not ARTICLE_COUNT_RE.search(normalized):
+        return None
+    documents = list(db.scalars(
+        select(NhhDocument).where(NhhDocument.is_active.is_(True), NhhDocument.indexed.is_(True))
+    ))
+    generic_words = {"qonun", "qonuni", "to", "g", "risida", "risidagi", "o", "rq", "respublikasi",
+                     "o'zbekiston", "uzbekiston", "ushbu", "bu", "mazkur"}
+    question_tokens = _word_set(normalized)
+    named = [doc for doc in documents if (_word_set(doc.title) - generic_words) & question_tokens]
+    names_other_document = re.search(
+        r"konstitutsiya|kodeks|farmon|qaror|nizom|buyruq|конституц|кодекс|фармон|қарор|низом",
+        normalized)
+    generic_reference = re.search(r"\b(?:ushbu|bu|mazkur|shu)\s+qonun|\bqonunda\b|ушбу қонун|қонунда",
+                                  normalized)
+    if named:
+        documents = named
+    elif names_other_document or not generic_reference:
+        # "Konstitutsiyada nechta modda bor?" is about a document we do not hold.
+        return None
+    if len(documents) != 1:
+        return None
+    document = documents[0]
+    headings = db.scalars(
+        select(Chunk.article_clause).where(Chunk.nhh_id == document.id, Chunk.article_clause.isnot(None))
+    )
+    numbers = sorted({int(match.group(1)) for heading in headings
+                      if (match := ARTICLE_HEADING_RE.search(heading or ""))})
+    if not numbers:
+        return None
+    source = {
+        "citation_number": 1, "document_id": document.id, "document_name": document.title,
+        "article_or_clause": None, "display_label": None,
+        "url": document.source_url or f"/api/nhh/{document.id}/download",
+        "excerpt": f"Indekslangan modda sarlavhalari: {numbers[0]}-modda … {numbers[-1]}-modda "
+                   f"(jami {len(numbers)} ta).",
+        "full_excerpt": ", ".join(f"{number}-modda" for number in numbers),
+        "page": None, "section": None, "evidence_type": "nhh",
+        "document_type": document.category, "official_number": document.official_number,
+    }
+    answer = (f"«{document.title}» hujjatida jami **{len(numbers)} ta modda** mavjud "
+              f"({numbers[0]}-moddadan {numbers[-1]}-moddagacha). [1]")
+    return answer, [source]
+
+
+def article_chunks_by_number(db: Session, number: str, limit: int = 12) -> list[Chunk]:
+    """All indexed NHH chunks whose heading is the requested article number."""
+    pattern = re.compile(rf"^\s*{re.escape(number)}\s*[-‐‑‒–—.]?\s*(?:modda|модда|статья)\b",
+                         re.IGNORECASE)
+    candidates = db.scalars(
+        select(Chunk)
+        .join(NhhDocument, NhhDocument.id == Chunk.nhh_id)
+        .where(Chunk.corpus_type == "nhh", NhhDocument.is_active.is_(True),
+               NhhDocument.indexed.is_(True), Chunk.article_clause.isnot(None),
+               Chunk.article_clause.like(f"{number}%"))
+        .order_by(Chunk.nhh_id, Chunk.chunk_order)
+    )
+    return [chunk for chunk in candidates if pattern.search(chunk.article_clause or "")][:limit]
 
 
 def grounded_context(chunks: list[Chunk]) -> str:
@@ -269,10 +402,24 @@ def _render_legal_blocks(value: dict, sources: list[dict]) -> tuple[str, tuple[i
             if number not in used:
                 used.append(number)
             citations.append(str(number))
-        text = block["text"].strip()
+        text = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", block["text"])
+        text = re.sub(r"\s*[\[(](?:L?\d+(?:\s*,\s*L?\d+)*)[\])]", "", text)
+        text = re.sub(r"(?<![\w-])L\d{1,2}(?![\w-])", "", text).strip()
         if not text:
             return None
-        lines.append(f"{text} [{', '.join(citations)}]")
+        marker = f"[{', '.join(citations)}]"
+        # The validator checks citations line by line; a block that spans several
+        # lines (a heading plus a list) gets the marker on every content line.
+        rendered_lines = []
+        for line in text.splitlines():
+            stripped = line.rstrip()
+            if not stripped.strip():
+                rendered_lines.append("")
+            elif re.fullmatch(r"\s*(?:\*\*[^*]+\*\*:?|#{1,4}\s.*)", stripped):
+                rendered_lines.append(stripped)  # a bare heading carries no claim
+            else:
+                rendered_lines.append(f"{stripped} {marker}")
+        lines.append("\n".join(rendered_lines))
     return "\n\n".join(lines), tuple(used)
 
 
@@ -328,8 +475,8 @@ async def generate_grounded_legal(system: str, prompt: str,
                 + ", ".join(f"[{value}]" for value in uncovered),
             )
             logger.warning(
-                "Grounding validation failed request_type=legal attempt=%s violations=%s",
-                attempt + 1, "; ".join(last_violations),
+                "Grounding validation failed request_type=legal attempt=%s violations=%s answer=%r",
+                attempt + 1, "; ".join(last_violations), generated[:400],
             )
             # A factual grounding failure (invented article, citation, number, date,
             # quote or legal identifier) is not worth a second generation: the
@@ -381,6 +528,8 @@ async def generate_grounded_document(system: str, prompt: str,
                 )
             generated = await llm.generate(system, request, temperature=0.0,
                                            max_tokens=budget)
+            # "fakt[1]" -> "fakt [1]": purely typographic, keeps the citation intact.
+            generated = re.sub(r"(?<=[^\s\[(])(\[\d+(?:\s*,\s*\d+)*\])", r" \1", generated)
             generated = repair_document_citations(generated, sources)
             validation = validate_cited_answer(generated, sources)
             if validation.valid:
@@ -421,8 +570,9 @@ def source_based_draft(title: str, instruction: str, base: str, sources: list[di
     lines = [
         f"# {title}",
         "",
-        "> Ushbu loyiha AI generatsiya xizmati vaqtincha mavjud bo‘lmagani sababli faqat "
-        "murojaat matni va tekshirilgan NHH parchalaridan avtomatik shakllantirildi. "
+        "> Ushbu loyiha AI izohi manba tekshiruvidan o‘tmagani yoki AI xizmati vaqtincha "
+        "mavjud bo‘lmagani sababli faqat topshiriq matni va tekshirilgan NHH parchalaridan "
+        "avtomatik shakllantirildi. "
         "Yuborishdan oldin mas’ul xodim tahriri va huquqiy tekshiruvi talab etiladi.",
         "",
         "## Topshiriq",
@@ -475,19 +625,32 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
     inference is confined to the opt-in "auto" mode.
     """
     started = time.monotonic()
+    if is_analytics_question(question):
+        answer, sources = analytics_answer(db, user)
+        logger.info("chat mode=%s llm_calls=0 result_kind=ok deterministic=analytics "
+                    "elapsed_ms=%s", mode, round((time.monotonic() - started) * 1000))
+        return ChatOutcome(answer, sources, "ok", None, "analytics_chat", mode, False)
     inferred_legal = has_legal_intent(question) if mode == "auto" else False
     legal = mode == "legal" or (mode == "auto" and inferred_legal)
     routed = mode == "auto" and inferred_legal
+    corpus_signature = "|".join(sorted(db.scalars(
+        select(NhhDocument.id).where(NhhDocument.is_active.is_(True), NhhDocument.indexed.is_(True))
+    ))) + f"#{db.scalar(select(func.count(Chunk.id)).where(Chunk.corpus_type == 'nhh')) or 0}"
+    key = answer_cache.cache_key("legal" if legal else "general", question, corpus_signature)
+    cached = answer_cache.get(key)
+    if cached:
+        logger.info("chat mode=%s cache=hit elapsed_ms=%s", "legal" if legal else "general",
+                    round((time.monotonic() - started) * 1000))
+        return ChatOutcome(cached["answer"], cached["sources"], "ok", None, cached["operation"],
+                           cached["effective_mode"], routed)
     if not legal:
         # A genuinely general question never touches vector retrieval, legal topic
         # filtering, article deduplication or grounding: one generation, nothing else.
-        answer = await llm.generate(
-            "Siz Raqobat qo‘mitasi ichki AI yordamchisisiz. O‘zbek lotin alifbosida qisqa va aniq "
-            "javob bering. Fakt uydirmang. Normativ-huquqiy da’voni manbasiz tasdiqlangan fakt sifatida "
-            "taqdim etmang.",
-            question,
-            max_tokens=get_settings().max_tokens_for("general"),
-        )
+        answer = await llm.generate(GENERAL_SYSTEM_PROMPT, question,
+                                    max_tokens=get_settings().max_tokens_for("general"))
+        answer = latin_legal_answer(answer)
+        answer_cache.put(key, {"answer": answer, "sources": [], "operation": "general_chat",
+                               "effective_mode": "general"})
         logger.info(
             "chat mode=general provider=%s model=%s llm_calls=1 retrieval_calls=0 "
             "elapsed_ms=%s", llm.provider_name, llm.active_model,
@@ -501,6 +664,24 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
             NhhDocument.is_active.is_(True), NhhDocument.indexed.is_(True)
         )
     ) or 0
+    if corpus_count:
+        corpus_titles = list(db.scalars(
+            select(NhhDocument.title).where(NhhDocument.is_active.is_(True),
+                                            NhhDocument.indexed.is_(True))
+        ))
+        if names_foreign_document(question, corpus_titles):
+            # "Konstitutsiyaning 1-moddasi" must never be answered with article 1 of
+            # whatever law happens to be indexed.
+            logger.info("chat mode=legal refused=foreign_document elapsed_ms=%s",
+                        round((time.monotonic() - started) * 1000))
+            return ChatOutcome(NO_SOURCES_ANSWER, [], "no_sources", None, "legal_chat",
+                               "legal", routed)
+    counted = article_count_answer(db, question) if corpus_count else None
+    if counted:
+        answer, sources = counted
+        logger.info("chat mode=legal llm_calls=0 result_kind=ok deterministic=article_count "
+                    "elapsed_ms=%s", round((time.monotonic() - started) * 1000))
+        return ChatOutcome(answer, sources, "ok", None, "legal_chat", "legal", routed)
     retrieval_started = time.monotonic()
     chunks = await search_async(db, question, user, "nhh", None, 12) if corpus_count else []
     if corpus_count and not chunks:
@@ -521,6 +702,11 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
         chunks = [chunk for chunk in chunks if article_pattern.search(
             f"{chunk.article_clause or ''} {chunk.text[:180]}"
         )]
+        # "19-moddaning mazmuni" carries almost no semantics, so the article is often
+        # absent from the vector top-N. The corpus is indexed by heading: look the
+        # article up directly rather than answering "no sources" for a law we hold.
+        if not chunks and corpus_count:
+            chunks = article_chunks_by_number(db, number)
     chunks = filter_legal_topic(chunks, question)
     selected = prefer_article_starts(db, distinct_source_chunks(chunks, limit=3))
     if selected and not _evidence_is_on_topic(question, selected):
@@ -537,11 +723,7 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
             )
             result_kind = "corpus_empty"
         else:
-            answer = (
-                "Mavjud normativ-huquqiy hujjatlar bazasida ushbu savolga yetarli huquqiy asos "
-                "topilmadi. Savolni aniqroq modda, mavzu yoki hujjat nomi bilan qayta yozing yoxud "
-                "tegishli NHHni bazaga qo‘shing."
-            )
+            answer = NO_SOURCES_ANSWER
             result_kind = "no_sources"
         logger.info(
             "chat mode=legal provider=%s model=%s llm_calls=0 retrieval_ms=%s "
@@ -563,13 +745,17 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
     if deterministic:
         pass
     elif llm.configured:
+        enumerations = [(source, source_enumeration(source)) for source in sources]
+        list_hint = ""
+        for source, enumerated in enumerations:
+            if enumerated:
+                lead, items = enumerated
+                list_hint += (f"\nESLATMA: [MANBA {source['citation_number']}] da {len(items)} bandlik "
+                              f"rasmiy ro‘yxat bor («{lead[:80]}»); javobda barcha bandlarni qamrab oling.")
         generation = await generate_grounded_legal(
-            "Siz Raqobat qo‘mitasi huquqiy yordamchisisiz. Faqat berilgan NHH parchalariga "
-            "tayangan holda, o‘zbek lotin alifbosida ixcham ro‘yxat shaklida javob bering. "
-            "Har bir huquqiy da’vodan keyin aynan taqdim etilgan [1] ko‘rinishidagi manba "
-            "raqamini yozing. Hujjat nomi, raqami, sanasi, modda, band, iqtibos, URL yoki citation "
-            "uydirmang. Yetarli asos bo‘lmasa buni aniq ayting.",
-            f"SAVOL:\n{question}\n\nTEKSHIRILGAN MANBALAR:\n{grounded_source_context(sources)}",
+            LEGAL_SYSTEM_PROMPT,
+            f"SAVOL:\n{question}\n\nTEKSHIRILGAN MANBALAR:\n{grounded_source_context(sources)}"
+            + list_hint,
             sources,
             question=question,
             compact_prompt=(
@@ -581,6 +767,36 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
         sources = generation.sources
         result_kind = generation.result_kind
         warning = generation.warning
+        if result_kind == "ok":
+            # Completeness guarantee: a statutory list the model summarised only in
+            # part is appended in full, verbatim and cited, so no criterion, prohibition
+            # or fine rate can silently disappear from a legal answer.
+            cited = {source["citation_number"] for source in sources}
+            for source, enumerated in enumerations:
+                if not enumerated or source["citation_number"] not in cited:
+                    continue
+                missing = missing_enumeration_items(answer, enumerated[1])
+                if missing:
+                    block = enumeration_block(source)
+                    if block:
+                        answer = f"{answer}\n\n{block}"
+                        logger.info("chat mode=legal appended_enumeration=%s missing_items=%s",
+                                    source.get("display_label"), len(missing))
+        if result_kind == "ok" and _is_no_basis_answer(answer):
+            if legal_concepts(question).distinct_topics or _requested_article_number(question):
+                # A real competition-law question whose commentary the model could
+                # not ground: the verified article text is still the useful answer.
+                answer, sources = extractive_legal_fallback(sources, question=question)
+                result_kind = "source_matches"
+                warning = ("AI izohi manbada aniq javob topmadi; tekshirilgan huquqiy "
+                           "asoslar ko‘rsatildi.")
+            else:
+                # Off-topic question: the retrieved article is resemblance, not
+                # evidence, and must not be shown as the "source" of a non-answer.
+                answer = NO_SOURCES_ANSWER
+                sources = []
+                result_kind = "no_sources"
+                warning = None
     else:
         answer = source_matches_answer(sources, question)
         result_kind = "source_matches"
@@ -591,4 +807,7 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
         not bool(deterministic), retrieval_ms, result_kind, len(sources),
         round((time.monotonic() - started) * 1000),
     )
+    if result_kind == "ok" and sources and not warning:
+        answer_cache.put(key, {"answer": answer, "sources": sources, "operation": "legal_chat",
+                               "effective_mode": "legal"})
     return ChatOutcome(answer, sources, result_kind, warning, "legal_chat", "legal", routed)

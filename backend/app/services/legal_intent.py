@@ -90,7 +90,8 @@ def legal_concepts(value: str) -> LegalConcepts:
     negotiation = "ustun muzokara" in normalized
     abuse = any(term in normalized for term in ("suiiste'mol", "suiiste’mol"))
     agreements = any(term in normalized for term in
-                     ("raqobatga qarshi kelishuv", "kelishuv", "muvofiqlashtirilgan"))
+                     ("raqobatga qarshi kelishuv", "kelishuv", "muvofiqlashtirilgan",
+                      "kartel", "narx til biriktir", "til biriktir"))
     trade = any(term in normalized for term in ("savdo", "tender", "xarid")) and any(
         term in normalized for term in ("raqobat", "chekl", "talab")
     )

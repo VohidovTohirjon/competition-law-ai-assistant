@@ -8,6 +8,7 @@ The application never silently reaches for a second provider: a fallback is used
 when configuration explicitly enables one.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -97,6 +98,7 @@ def _groq_profile(settings) -> ProviderProfile:
         requires_api_key=True,
         max_tokens_field="max_completion_tokens",
         send_groq_reasoning_hints=True,
+        reasoning_effort=settings.groq_reasoning_effort,
         strict_schema_models=GROQ_STRICT_SCHEMA_MODELS,
     )
 
@@ -167,7 +169,8 @@ class OpenAICompatibleProvider:
     def _reasoning_fields(self, model: str) -> dict:
         if self.profile.send_groq_reasoning_hints:
             if model.startswith("openai/gpt-oss-"):
-                return {"include_reasoning": False, "reasoning_effort": "low"}
+                return {"include_reasoning": False,
+                        "reasoning_effort": self.profile.reasoning_effort or "low"}
             if model.startswith("qwen/"):
                 return {"reasoning_effort": "none"}
             return {}
@@ -260,6 +263,21 @@ class OpenAICompatibleProvider:
             if model not in excluded and self._cooldown_until.get(model, 0) <= now
         ]
         if not candidates:
+            # Every model is in a rate-limit cooldown. When the nearest one frees up
+            # within a few seconds, waiting is far better for the user than a 429.
+            pending = [self._cooldown_until[model] - now for model in profile.models
+                       if model not in excluded and model in self._cooldown_until]
+            wait = min(pending) if pending else 0
+            if 0 < wait <= 30:
+                logger.info("LLM waiting for cooldown provider=%s seconds=%s",
+                            profile.name, round(wait, 1))
+                await asyncio.sleep(wait + 0.2)
+                now = time.monotonic()
+                candidates = [
+                    model for model in profile.models
+                    if model not in excluded and self._cooldown_until.get(model, 0) <= now
+                ]
+        if not candidates:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "Barcha AI modellarining vaqtinchalik limiti tugagan. Birozdan so‘ng qayta urinib ko‘ring",
@@ -312,22 +330,31 @@ class OpenAICompatibleProvider:
                                    profile.name, model)
                     break
                 if response.status_code in {400, 404, 422}:
+                    body_text = str(getattr(response, "text", "") or "")[:400].replace("\n", " ")
+                    # Groq answers 400 "json_validate_failed" when one generation did
+                    # not satisfy the strict schema. That is a transient failure of a
+                    # single completion, not a broken model: retry once in plain
+                    # JSON mode and keep the model in rotation.
+                    transient_schema = bool(response_schema) and (
+                        "json_validate_failed" in body_text or "failed_generation" in body_text
+                    )
                     # A server that rejects strict json_schema is retried once in
                     # plain JSON mode before the model is demoted.
                     if (response_schema and allow_strict and attempt == 0
-                            and profile.degrade_schema_on_rejection
+                            and (profile.degrade_schema_on_rejection or transient_schema)
                             and model in profile.strict_schema_models):
-                        self._schema_unsupported.add(model)
+                        if profile.degrade_schema_on_rejection and not transient_schema:
+                            self._schema_unsupported.add(model)
                         allow_strict = False
                         logger.warning(
-                            "LLM schema degrade provider=%s model=%s status=%s",
-                            profile.name, model, response.status_code,
+                            "LLM schema degrade provider=%s model=%s status=%s transient=%s",
+                            profile.name, model, response.status_code, transient_schema,
                         )
                         continue
                     saw_model_error = True
-                    self._cool_down(model, 300)
-                    logger.warning("LLM failover reason=model_or_format provider=%s status=%s model=%s",
-                                   profile.name, response.status_code, model)
+                    self._cool_down(model, 30 if transient_schema else 300)
+                    logger.warning("LLM failover reason=model_or_format provider=%s status=%s model=%s body=%s",
+                                   profile.name, response.status_code, model, body_text[:200])
                     break
                 if response.status_code >= 500:
                     self._cool_down(model, 5)

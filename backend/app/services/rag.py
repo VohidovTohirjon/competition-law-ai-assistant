@@ -16,7 +16,29 @@ from .legal_intent import (is_abuse_heading, is_agreement_heading,
                            is_trade_heading, legal_concepts)
 
 
-def chunk_text(content: str, size: int = 1300, overlap: int = 180) -> list[dict]:
+# In a law, an article heading is the whole start of a block: "13-modda. Ustun mavqe".
+# Anything else that mentions "modda" is body text, including the amendment clauses of
+# the closing articles, which quote other codes ("1) 178-modda quyidagi tahrirda ...").
+# Departmental acts number their sections "3-band" rather than "13-modda", so both are
+# accepted; the anchor is what matters, since an amendment clause always starts with its
+# own enumerator ("1) 178-modda ...") and therefore cannot match.
+LEGAL_HEADING_RE = re.compile(
+    r"^\s*(\d{1,3}\s*[-‐‑‒–—]?\s*(?:modda|band|модда|банд|статья)\b[^\n]{0,90})",
+    re.IGNORECASE)
+# An ordinary document has no articles; its own numbered section headings are kept so
+# the UI can cite a meaningful location.
+DOCUMENT_HEADING_RE = re.compile(
+    r"(?:^|\n)\s*((?:\d+[.-]?\s*)?(?:modda|band|модда|банд)[^\n]{0,80})", re.IGNORECASE)
+DOCUMENT_SECTION_RE = re.compile(r"\s*\d{1,3}[.)]\s+[^\n]{2,100}\s*")
+
+
+def chunk_text(content: str, size: int = 1300, overlap: int = 180, *,
+               legal: bool = False) -> list[dict]:
+    """Split a document into indexable chunks, tracking the heading each chunk sits under.
+
+    `legal=True` applies the strict statutory heading rule; without it a law's amendment
+    clauses were indexed as articles of that law and later cited as such.
+    """
     blocks = [b.strip() for b in re.split(r"\n{2,}", content) if b.strip()]
     chunks: list[dict] = []
     current = ""
@@ -29,23 +51,14 @@ def chunk_text(content: str, size: int = 1300, overlap: int = 180) -> list[dict]
                 chunks.append({"text": current, "page": page, "article": article})
                 current = ""
             page = int(page_match.group(1))
-        article_match = re.search(
-            r"(?:^|\n)\s*((?:\d+[.-]?\s*)?(?:modda|band|модда|банд)[^\n]{0,80})",
-            block,
-            re.I,
-        )
-        if article_match:
+        heading = (LEGAL_HEADING_RE.match(block) if legal
+                   else DOCUMENT_HEADING_RE.search(block)
+                   or DOCUMENT_SECTION_RE.fullmatch(block))
+        if heading:
             if current:
                 chunks.append({"text": current, "page": page, "article": article})
                 current = ""
-            article = article_match.group(1).strip()
-        elif re.fullmatch(r"\s*\d{1,3}[.)]\s+[^\n]{2,100}\s*", block):
-            # Ordinary documents do not have legal articles. Preserve their own
-            # numbered section heading so the UI can cite a meaningful location.
-            if current:
-                chunks.append({"text": current, "page": page, "article": article})
-                current = ""
-            article = block.strip()
+            article = (heading.group(1) if heading.lastindex else heading.group(0)).strip()
         candidate = f"{current}\n\n{block}".strip()
         if len(candidate) <= size:
             current = candidate
@@ -92,12 +105,22 @@ class Embeddings:
             self._message = "Embedding modeli fon rejimida tayyorlanmoqda"
             try:
                 from sentence_transformers import SentenceTransformer
-                model = SentenceTransformer(settings.embedding_model)
+                model_kwargs = {}
+                if settings.embedding_half_precision:
+                    import torch
+                    # Halves the resident model (2.2 GB -> 1.1 GB) on Apple/NVIDIA
+                    # accelerators; cosine ranking is unchanged in practice.
+                    if torch.backends.mps.is_available() or torch.cuda.is_available():
+                        model_kwargs["torch_dtype"] = torch.float16
+                model = SentenceTransformer(settings.embedding_model, model_kwargs=model_kwargs)
                 dimension = model.get_embedding_dimension()
                 if dimension != settings.embedding_dimensions:
                     raise ValueError(
                         f"Model o‘lchami {dimension}, bazadagi o‘lcham esa {settings.embedding_dimensions}"
                     )
+                # One throwaway encode pays the backend (MPS/CUDA) kernel warm-up now
+                # instead of on the first real question.
+                model.encode(["tayyorlov"], normalize_embeddings=True, show_progress_bar=False)
                 self._model = model
                 self._state = "ready"
                 self._message = "Embedding modeli tayyor"
@@ -162,14 +185,16 @@ def _save_index(db: Session, source: Document | NhhDocument, corpus_type: str,
 
 
 def index_document(db: Session, source: Document | NhhDocument, corpus_type: str) -> int:
-    pieces = chunk_text(source.parsed_text if corpus_type == "document" else source.original_text)
+    pieces = chunk_text(source.parsed_text if corpus_type == "document" else source.original_text,
+                        legal=corpus_type == "nhh")
     vectors = embeddings.encode([piece["text"] for piece in pieces])
     return _save_index(db, source, corpus_type, pieces, vectors)
 
 
 async def index_document_async(db: Session, source: Document | NhhDocument, corpus_type: str) -> int:
     """Compute expensive embeddings off the event loop, then mutate this request's DB session safely."""
-    pieces = chunk_text(source.parsed_text if corpus_type == "document" else source.original_text)
+    pieces = chunk_text(source.parsed_text if corpus_type == "document" else source.original_text,
+                        legal=corpus_type == "nhh")
     vectors = await asyncio.to_thread(embeddings.encode, [piece["text"] for piece in pieces])
     return _save_index(db, source, corpus_type, pieces, vectors)
 
@@ -251,17 +276,47 @@ def _has_topical_overlap(query: str, chunk: Chunk) -> bool:
 
 
 def _requested_article_number(query: str) -> str | None:
-    match = re.search(r"\b(\d{1,3})\s*[-‐‑‒–—.]?\s*(?:modda|модда|статья)\b", query, re.IGNORECASE)
+    # Suffixed forms ("19-moddaning mazmuni", "13-moddasi") are explicit requests too.
+    match = re.search(r"\b(\d{1,3})\s*[-‐‑‒–—.]?\s*(?:modda|модда|статья)\w*", query, re.IGNORECASE)
     return match.group(1) if match else None
 
 
+# Documents an official may name that are NOT the competition-law corpus. A question
+# pinned to "Konstitutsiyaning 1-moddasi" must never be answered with article 1 of
+# whatever law happens to be indexed.
+FOREIGN_DOCUMENT_RE = re.compile(
+    r"konstitutsiya\w*|kodeks\w*|конституция\w*|кодекс\w*|"
+    r"(?:mehnat|jinoyat|soliq|fuqarolik|ma'muriy|budjet|bojxona|oila|yer|uy-joy)\s+kodeks",
+    re.IGNORECASE,
+)
+
+
+def names_foreign_document(query: str, titles: list[str]) -> bool:
+    """True when the question names a legal act that is not in the indexed corpus."""
+    normalized = _normalize_uzbek(query)
+    if not FOREIGN_DOCUMENT_RE.search(normalized):
+        return False
+    corpus = " ".join(_normalize_uzbek(title) for title in titles)
+    for match in FOREIGN_DOCUMENT_RE.finditer(normalized):
+        if match.group(0)[:9] not in corpus:
+            return True
+    return False
+
+
 def _matches_requested_article(query: str, chunk: Chunk) -> bool:
-    """An explicitly requested article number stays admissible on its own."""
+    """An explicitly requested article number stays admissible on its own.
+
+    Matched against the chunk's own heading only: a chunk that merely cross-references
+    another act's article must not be pinned by that number.
+    """
     number = _requested_article_number(query)
     if not number:
         return False
-    return bool(re.search(rf"\b{re.escape(number)}\s*[-‐‑‒–—.]?\s*(?:modda|модда|статья)\b",
-                          f"{chunk.article_clause or ''} {chunk.text[:180]}", re.IGNORECASE))
+    title = chunk.nhh.title if chunk.nhh else (chunk.document.filename if chunk.document else "")
+    if names_foreign_document(query, [title]):
+        return False
+    return bool(re.match(rf"\s*{re.escape(number)}\s*[-‐‑‒–—.]?\s*(?:modda|модда|статья)\b",
+                         chunk.article_clause or "", re.IGNORECASE))
 
 
 def _lexical_score(query: str, chunk: Chunk) -> float:
@@ -317,6 +372,14 @@ def _legal_intent_score(query: str, chunk: Chunk) -> float:
         score += 0.60
     if concepts.trade_restrictions and is_trade_heading(chunk.article_clause or ""):
         score += 0.60
+    # "Qanday javobgarlik / jarima bor?" is answered by the sanction and liability
+    # articles, whose vocabulary is far from the conduct the question describes.
+    # Cyrillic "санкция" transliterates to "sanktsiya", so both spellings must match.
+    if re.search(r"javobgarlik|jarima|sank[t]?siya|jazo|miqdor", q):
+        if re.search(r"moliyaviy sank[t]?siya", heading):
+            score += 0.85  # the article that lists the actual fine rates
+        elif re.search(r"javobgarlik|sank[t]?siya|jarima", heading):
+            score += 0.45
     return score
 
 
@@ -345,6 +408,17 @@ def filter_legal_topic(chunks: list[Chunk], query: str) -> list[Chunk]:
     """Drop semantically-near but topically wrong articles when the query names a legal concept."""
     normalized_query = _normalize_uzbek(query)
     concepts = legal_concepts(query)
+    # "How much is the fine for X?" is answered by the sanctions article, whose wording
+    # is far from the conduct the question names, so it must be pulled to the front
+    # before any concept-specific narrowing happens. The article that lists the actual
+    # rates outranks the one-line liability article.
+    if re.search(r"jarima|sank[t]?siya|jazo|javobgarlik", normalized_query):
+        headings = {chunk.id: _normalize_uzbek(chunk.article_clause or "") for chunk in chunks}
+        rates = [chunk for chunk in chunks if re.search(r"moliyaviy sank[t]?siya", headings[chunk.id])]
+        liability = [chunk for chunk in chunks
+                     if "javobgarlik" in headings[chunk.id] and chunk not in rates]
+        if rates or liability:
+            return list(dict.fromkeys(rates + liability + list(chunks)))
     # Combined questions intentionally retain each directly relevant article.
     if concepts.compares_dominance_and_negotiation:
         direct = [chunk for chunk in chunks if is_dominance_heading(chunk.article_clause or "")
