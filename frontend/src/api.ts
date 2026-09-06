@@ -61,7 +61,22 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   }
   if (!response.ok) {
     let message = 'So‘rovni bajarib bo‘lmadi'
-    try { message = (await response.json()).detail || message } catch { /* javob JSON emas */ }
+    try {
+      // FastAPI returns a string for HTTPException and an array of field errors for a
+      // 422; rendering the array directly printed the literal text "[object Object]".
+      const detail = (await response.json()).detail
+      if (typeof detail === 'string' && detail) message = detail
+      else if (Array.isArray(detail) && detail.length) {
+        const parts = detail
+          .map((item: {msg?: string; loc?: (string|number)[]}) => {
+            const field = (item.loc || []).filter(part => part !== 'body').join('.')
+            const text = String(item.msg || '').replace(/^Value error,\s*/, '')
+            return field && text ? `${field}: ${text}` : text
+          })
+          .filter(Boolean)
+        if (parts.length) message = parts.join('; ')
+      }
+    } catch { /* javob JSON emas */ }
     throw new ApiError(message, response.status)
   }
   if (response.status === 204) return undefined as T
