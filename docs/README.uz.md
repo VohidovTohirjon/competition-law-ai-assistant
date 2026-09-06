@@ -8,6 +8,26 @@ Raqobat qo‘mitasi rahbariyati va xodimlari uchun sun’iy intellektga asoslang
 
 ---
 
+## Skrinshotlar
+
+Ustun mavqe mezonlari — 13-moddadan, barcha mezonlar bilan, manba kartochkasi, rasmiy havola va foydalanilgan parcha:
+
+![Ustun mavqe mezonlari bo‘yicha huquqiy javob va manba kartochkasi](images/chat-legal-criteria.jpg)
+
+Ta’rif savoli — model ikki modda asosida javob yozadi, 21-moddadagi taqiqlangan harakatlar ro‘yxati to‘liq keltiriladi:
+
+![Insofsiz raqobat ta’rifi va 21-moddadagi taqiqlar ro‘yxati](images/chat-legal-definition.jpg)
+
+Hujjat tahlili — yuklangan murojaatning qisqacha mazmuni, har bir fikr o‘z parchasiga bog‘langan:
+
+![Yuklangan murojaatning qisqacha mazmuni](images/document-summary.jpg)
+
+Hujjat loyihasi — murojaat va qonun asosida tayyorlangan javob xati, shartli huquqiy til, DOCX eksport tugmalari va to‘ldirilishi kerak bo‘lgan rekvizitlar ro‘yxati:
+
+![Javob xati loyihasi, huquqiy asos, eksport tugmalari va manbalar](images/draft-response-letter.jpg)
+
+---
+
 ## Mundarija
 
 1. [Tizim nima qiladi](#tizim-nima-qiladi)

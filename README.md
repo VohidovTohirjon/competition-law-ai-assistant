@@ -9,6 +9,26 @@ It answers legal questions from the official statute base with article-level cit
 
 ---
 
+## Screenshots
+
+The statutory dominance criteria, answered from article 13 with every criterion present, the source card, the official link and the passage used:
+
+![Legal answer with the four dominance criteria and its source card](docs/images/chat-legal-criteria.jpg)
+
+A definition question answered by the model over two articles, with the statutory list of prohibited acts reproduced in full:
+
+![Definition of unfair competition with the list of prohibited acts from article 21](docs/images/chat-legal-definition.jpg)
+
+Document analysis: a one-click summary of an uploaded appeal, every statement cited to the passage it came from:
+
+![Summary of an uploaded appeal with cited passages](docs/images/document-summary.jpg)
+
+Drafting: a response letter generated over the appeal and the statute, with conditional legal language, the DOCX export buttons and the list of missing official fields:
+
+![Generated response letter with legal basis, export buttons and sources](docs/images/draft-response-letter.jpg)
+
+---
+
 ## Why this project is interesting
 
 Legal assistants fail in one specific way: they cite an article that does not say what they claim. This system is built so that **cannot reach the user**.
