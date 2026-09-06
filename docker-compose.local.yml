@@ -1,0 +1,7 @@
+# Lokal ishlab chiqish / demo uchun qo'shimcha konfiguratsiya.
+# Backend va frontend host'da (venv + vite) ishlaydi, faqat PostgreSQL Docker'da.
+# Ishga tushirish: ./local-demo.sh   (yoki: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d db)
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"

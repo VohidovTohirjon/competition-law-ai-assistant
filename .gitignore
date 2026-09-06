@@ -1,4 +1,7 @@
 .env
+.env.*
+!.env.example
+!.env.production.example
 .venv/
 __pycache__/
 .pytest_cache/
@@ -13,3 +16,8 @@ tmp/
 backend/artifacts/*
 !backend/artifacts/final-pass/
 
+# Shaxsiy va vositaga oid fayllar — hech qachon repozitoriyga kirmaydi
+.claude/
+dissertatsiya/
+skills-lock.json
+*.log
