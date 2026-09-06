@@ -50,7 +50,7 @@ apt-get update && apt-get install -y git curl ufw python3-venv python3-pip && nv
 ## 2. Repozitoriyni klonlash
 
 ```bash
-mkdir -p /opt && cd /opt && git clone https://github.com/VohidovTohirjon/Antimonopoliya.git raqobat && cd /opt/raqobat
+mkdir -p /opt && cd /opt && git clone https://github.com/VohidovTohirjon/competition-law-ai-assistant.git raqobat && cd /opt/raqobat
 ```
 
 ## 3. Production `.env`
