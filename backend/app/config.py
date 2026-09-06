@@ -53,12 +53,19 @@ class Settings(BaseSettings):
     # after an authorized deployment explicitly enables this policy.
     allow_external_confidential_ai: bool = False
     groq_timeout_seconds: float = 30.0
+    # gpt-oss reasoning depth on Groq. "low" is the latency-first default; "medium"
+    # noticeably improves citation discipline on legal answers at a small cost.
+    groq_reasoning_effort: str = "low"
     groq_max_tokens: int = 3200
     embedding_model: str = "BAAI/bge-m3"
     embedding_backend: str = "sentence_transformers"
     embedding_dimensions: int = 1024
     embedding_warmup_on_startup: bool = True
+    # Load the embedding model in float16 on MPS/CUDA to halve its memory footprint.
+    embedding_half_precision: bool = True
     context_max_chars: int = 18000
+    # Validated chat answers are reused for identical questions (see answer_cache.py).
+    answer_cache_enabled: bool = True
     retrieval_min_score: float = 0.48
     retrieval_candidate_limit: int = 60
     # Password given to accounts that the explicitly confirmed local seed command
