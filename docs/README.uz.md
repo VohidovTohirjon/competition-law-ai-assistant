@@ -118,6 +118,7 @@ flowchart TD
 - **Rasmiy ro‘yxatlar to‘liq beriladi.** Manbada raqamlangan ro‘yxat bo‘lsa (ustun mavqe mezonlari, jarima stavkalari), model javobi har bir bandni qamrab olgani tekshiriladi; tushib qolgan band manbadan so‘zma-so‘z qo‘shiladi.
 - **Modda sarlavhalari qat’iy aniqlanadi.** Qonunning o‘zgartirish kirituvchi moddalari ichida iqtibos keltirilgan boshqa kodeks moddalari shu qonunning moddasi sifatida indekslanmaydi.
 - **Bazada bo‘lmagan hujjat haqida javob berilmaydi.** «Konstitutsiyaning 1-moddasi» kabi savolga boshqa qonunning 1-moddasi ko‘rsatilmaydi — «yetarli huquqiy asos topilmadi» qaytadi.
+- **Umumiy rejim qonunni xotiradan aytmaydi.** «Umumiy savol» rejimida huquqiy savol berilsa, tizim uni RAG ga o‘tkazmaydi, lekin modelning o‘z xotirasiga ham ishonmaydi: o‘z holiga qo‘yilganda model mavjud bo‘lmagan qonun nomi, modda raqami va jarima miqdorini o‘ylab topgan edi. Endi bunday savolga faqat tushuncha darajasidagi izoh beriladi (qonun nomi, modda raqami, foiz va summa yozilmaydi), javob tepasida «NHH bazasiga asoslanmagan» ogohlantirishi ko‘rinadi va «Huquqiy qidiruv» rejimiga o‘tish taklif qilinadi. Model baribir aniq huquqiy ko‘rsatkich yozsa, deterministik tekshiruv javobni butunlay shu taklif bilan almashtiradi.
 - **Rejim — shartnoma.** «Umumiy savol» rejimida savol hech qachon huquqiy RAG ga o‘tkazilmaydi, «Huquqiy qidiruv» rejimida faqat tasdiqlangan manba asosida javob beriladi.
 
 ---

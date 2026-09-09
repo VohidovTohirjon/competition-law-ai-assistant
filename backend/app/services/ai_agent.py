@@ -131,6 +131,51 @@ GENERAL_SYSTEM_PROMPT = (
     "lekin savolga baribir mazmunli javob bering. Javob 150–350 so‘z atrofida bo‘lsin."
 )
 
+# A legal question asked in "general" mode is the one case where the model has no
+# evidence and the strongest incentive to improvise. Left to the ordinary general
+# prompt it invented a law title, an article number and a fine range. Here it may
+# explain the concept, and nothing else.
+GENERAL_LEGAL_SYSTEM_PROMPT = (
+    "Siz O‘zbekiston Respublikasi Raqobatni rivojlantirish va iste’molchilar huquqlarini "
+    "himoya qilish qo‘mitasining ichki AI yordamchisisiz. Foydalanuvchi «Umumiy savol» "
+    "rejimini tanlagan, shuning uchun sizda normativ-huquqiy hujjatlar bazasi YO‘Q va "
+    "hech qanday tekshirilgan manba berilmagan.\n"
+    "QAT’IY TAQIQ: qonun yoki hujjat nomini yozmang; modda, band yoki hujjat raqamini "
+    "yozmang; foiz, jarima miqdori, pul summasi, muddat yoki boshqa aniq huquqiy "
+    "ko‘rsatkichni yozmang. Bu ma’lumotlarni eslab qolgan bilimingizdan keltirmang — "
+    "ular xato bo‘lishi mumkin va tekshirib bo‘lmaydi.\n"
+    "Buning o‘rniga: tushunchani umumiy tarzda, oddiy til bilan tushuntiring (nima "
+    "baholanadi, qanday omillar hisobga olinadi, jarayon qanday ketadi), 120–200 so‘z "
+    "hajmida, o‘zbek lotin alifbosida. Javob oxirida aniq norma va raqamlar uchun "
+    "«Huquqiy qidiruv» rejimidan foydalanish kerakligini bir gapda ayting."
+)
+
+# What must never appear in a general-mode answer to a legal question.
+LEGAL_SPECIFICS_RE = re.compile(
+    r"\b\d{1,3}\s*[-‐‑‒–—.]?\s*(?:modda|band|модда|банд)\w*"          # article/clause reference
+    r"|\b\d+(?:[.,]\d+)?\s*(?:%|foiz)"                                  # numeric legal threshold
+    r"|\bO['‘’ʻ`]?RQ\s*[-–]?\s*\d+|\bПҚ\s*[-–]?\s*\d+|№\s*\d+"     # act numbers
+    r"|\b(?:so['‘’ʻ`]m|baravar\w*|bazaviy hisoblash)"                     # money amounts
+    r"|to['‘’ʻ`]?g['‘’ʻ`]?risidagi\s+qonun|\bqonuni(?:ning|da|ga)\b"      # law titles
+    r"|\bkodeks\w*|\bnizom(?:i|ida|ning)\b|\bfarmon\w*|\bqarori(?:da|ning)?\b",
+    re.IGNORECASE,
+)
+
+GENERAL_LEGAL_REDIRECT = (
+    "Bu savol aniq huquqiy asos talab qiladi.\n\n"
+    "**Umumiy savol** rejimida tizim normativ-huquqiy hujjatlar bazasidan foydalanmaydi, "
+    "shuning uchun modda raqami, foiz ko‘rsatkichi yoki jarima miqdori kabi aniq qiymatlar "
+    "bu rejimda berilmaydi — tekshirilmagan raqamni ko‘rsatgandan ko‘ra, ko‘rsatmaslik "
+    "to‘g‘riroq.\n\n"
+    "Yuqoridagi **«Huquqiy qidiruv»** rejimini tanlab, shu savolni qayta yuboring: javob "
+    "tegishli modda, rasmiy havola va qonundan olingan matn parchasi bilan beriladi."
+)
+
+GENERAL_LEGAL_WARNING = (
+    "Umumiy rejim javobi NHH bazasiga asoslanmagan. Aniq modda va raqamlar uchun "
+    "«Huquqiy qidiruv» rejimini tanlang."
+)
+
 LEGAL_SYSTEM_PROMPT = (
     "Siz Raqobat qo‘mitasining huquqiy yordamchisisiz. Faqat TEKSHIRILGAN MANBALAR bo‘limidagi "
     "parchalarga tayanib, o‘zbek lotin alifbosida to‘liq, tushunarli va professional javob "
@@ -658,22 +703,32 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
     if cached:
         logger.info("chat mode=%s cache=hit elapsed_ms=%s", "legal" if legal else "general",
                     round((time.monotonic() - started) * 1000))
-        return ChatOutcome(cached["answer"], cached["sources"], "ok", None, cached["operation"],
-                           cached["effective_mode"], routed)
+        return ChatOutcome(cached["answer"], cached["sources"], "ok", cached.get("warning"),
+                           cached["operation"], cached["effective_mode"], routed)
     if not legal:
         # A genuinely general question never touches vector retrieval, legal topic
         # filtering, article deduplication or grounding: one generation, nothing else.
-        answer = await llm.generate(GENERAL_SYSTEM_PROMPT, question,
-                                    max_tokens=get_settings().max_tokens_for("general"))
+        # The mode stays a contract: a legal question is NOT re-routed to retrieval,
+        # but it is also not answered with law recalled from the model's memory.
+        legal_topic = has_legal_intent(question)
+        warning = GENERAL_LEGAL_WARNING if legal_topic else None
+        answer = await llm.generate(
+            GENERAL_LEGAL_SYSTEM_PROMPT if legal_topic else GENERAL_SYSTEM_PROMPT, question,
+            max_tokens=get_settings().max_tokens_for("general"))
         answer = latin_legal_answer(answer)
+        if legal_topic and LEGAL_SPECIFICS_RE.search(answer):
+            # The model named a law, an article or a figure it cannot support. Nothing
+            # in this answer is verifiable, so none of it is shown.
+            logger.warning("chat mode=general refused=unsourced_legal_specifics")
+            answer = GENERAL_LEGAL_REDIRECT
         answer_cache.put(key, {"answer": answer, "sources": [], "operation": "general_chat",
-                               "effective_mode": "general"})
+                               "effective_mode": "general", "warning": warning})
         logger.info(
-            "chat mode=general provider=%s model=%s llm_calls=1 retrieval_calls=0 "
-            "elapsed_ms=%s", llm.provider_name, llm.active_model,
-            round((time.monotonic() - started) * 1000),
+            "chat mode=general legal_topic=%s provider=%s model=%s llm_calls=1 "
+            "retrieval_calls=0 elapsed_ms=%s", legal_topic, llm.provider_name,
+            llm.active_model, round((time.monotonic() - started) * 1000),
         )
-        return ChatOutcome(answer, [], "ok", None, "general_chat", "general", False)
+        return ChatOutcome(answer, [], "ok", warning, "general_chat", "general", False)
 
     warning = None
     corpus_count = db.scalar(
