@@ -244,7 +244,7 @@ Texnik topshiriqning 7-bo‘limi talablari va ularning bajarilishi:
 | Parol tanlashdan himoya | Bitta hisob uchun 8 ta xato urinishdan so‘ng 5 daqiqa blok, IP uchun 30 ta; mavjud bo‘lmagan login uchun ham parol tekshiruvi bajariladi (vaqt orqali hisobni aniqlab bo‘lmaydi) |
 | Fayl xavfsizligi | Kengaytmaga ishonilmaydi: PDF sarlavhasi va Office ZIP tuzilmasi tekshiriladi; hajm chegarasi; matnsiz (skanerlangan) fayl rad etiladi |
 
-**Repozitoriy gigiyenasi.** `.env`, `.env.*` (namunalardan tashqari), `data/`, `tmp/`, `.claude/` va shaxsiy fayllar `.gitignore` da. Haqiqiy kalitlar hech qachon commit qilinmaydi — faqat `.env.example` va `.env.production.example` (placeholder qiymatlar bilan). Kalit tasodifan oshkor bo‘lsa, uni provayder panelida darhol bekor qiling.
+**Repozitoriy gigiyenasi.** `.env`, `.env.*` (namunalardan tashqari), `data/`, `tmp/`, loglar va shaxsiy fayllar `.gitignore` da. Haqiqiy kalitlar hech qachon commit qilinmaydi — faqat `.env.example` va `.env.production.example` (placeholder qiymatlar bilan). Kalit tasodifan oshkor bo‘lsa, uni provayder panelida darhol bekor qiling.
 
 `SECRET_KEY` yaratish:
 
