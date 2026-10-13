@@ -224,3 +224,7 @@ local-demo.sh        one-command local run (macOS)
 ```
 
 Production deployment on a single VM (Nginx as the only open port, PostgreSQL and backend on the internal network, vLLM on the host) is documented in [deploy/README.md](deploy/README.md).
+
+## Author
+
+Tokhirjon Vokhidov · [tokhirjon-vokhidov.pages.dev](https://tokhirjon-vokhidov.pages.dev)
