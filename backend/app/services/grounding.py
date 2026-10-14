@@ -36,6 +36,9 @@ REPAIRABLE_VIOLATIONS = frozenset({
     # The figure IS in the displayed evidence, just under a different citation number:
     # a presentation error one correction round can fix.
     "citation_misassigned",
+    # A clause number the evidence does not carry: the surrounding claim is usually
+    # sound, so one rewrite is cheaper and better than dropping to raw excerpts.
+    "band_unsupported",
 })
 
 
@@ -97,6 +100,18 @@ def _evidence_of(source: dict) -> str:
     "40 foiz" threshold, 27-modda's turnover amounts).
     """
     return source.get("full_excerpt") or source.get("excerpt") or ""
+
+
+BAND_RE = re.compile(
+    r"\b(\d{1,3})\s*[-‐‑‒–—.]?\s*(?:band|банд)(?:i|ida|da|ning|lar\w*)?\b", re.IGNORECASE)
+
+
+def _allowed_band_numbers(sources: list[dict]) -> set[int]:
+    result: set[int] = set()
+    for source in sources:
+        raw = f"{source.get('article_or_clause') or ''}\n{_evidence_of(source)}"
+        result.update(int(match.group(1)) for match in BAND_RE.finditer(raw))
+    return result
 
 
 def _allowed_article_numbers(sources: list[dict]) -> set[int]:
@@ -253,6 +268,11 @@ def validate_legal_answer(answer: str, sources: list[dict],
     if invented_articles:
         fail("article_unsupported",
              "Dalilda yo‘q modda: " + ", ".join(map(str, invented_articles)))
+
+    invented_bands = sorted({int(match.group(1)) for match in BAND_RE.finditer(checked)}
+                            - _allowed_band_numbers(sources))
+    if invented_bands:
+        fail("band_unsupported", "Dalilda yo‘q band: " + ", ".join(map(str, invented_bands)))
 
     allowed_document_ids = _allowed_document_ids(sources)
     generated_document_ids = {normalize_text(match.group(0)) for match in DOCUMENT_ID_RE.finditer(checked)}
@@ -440,6 +460,8 @@ GENERATED_TEXT_FIXES = (
     (r"\bO[’'`]tkir kalendar", "Oxirgi kalendar"),
     (r"\bnoto[‘’'`]g[‘’'`]ri raqobat", "insofsiz raqobat"),
     (r"\bxususiy subyekt", "xo‘jalik yurituvchi subyekt"),
+    # "yo‘rituvchi" is not a word; the model produces it when it spells "юритувчи" by ear.
+    (r"\b(y)o[‘’'`]rituvchi", r"\1urituvchi"),
 )
 
 

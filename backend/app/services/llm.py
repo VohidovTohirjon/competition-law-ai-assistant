@@ -278,9 +278,17 @@ class OpenAICompatibleProvider:
                     if model not in excluded and self._cooldown_until.get(model, 0) <= now
                 ]
         if not candidates:
+            # Tell the user how long the wait actually is: "try again later" reads like a
+            # failure, a number reads like a queue.
+            remaining = [self._cooldown_until[model] - time.monotonic()
+                         for model in profile.models
+                         if model not in excluded and model in self._cooldown_until]
+            seconds = max(1, round(min(remaining))) if remaining else None
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                "Barcha AI modellarining vaqtinchalik limiti tugagan. Birozdan so‘ng qayta urinib ko‘ring",
+                "Barcha AI modellarining daqiqalik limiti tugagan. "
+                + (f"Taxminan {seconds} soniyadan so‘ng qayta yuboring"
+                   if seconds else "Birozdan so‘ng qayta urinib ko‘ring"),
             )
 
         saw_rate_limit = saw_timeout = saw_model_error = False

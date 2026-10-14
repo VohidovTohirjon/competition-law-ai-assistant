@@ -182,7 +182,12 @@ LEGAL_SYSTEM_PROMPT = (
     "yozing. Tuzilma: (1) savolga to‘g‘ridan-to‘g‘ri javob; (2) huquqiy asos — qaysi modda nima "
     "deydi, zarur bo‘lsa ro‘yxat shaklida; (3) amaliy izoh yoki chegara (agar manbada bo‘lsa). "
     "Manbada ro‘yxat (mezonlar, shartlar, taqiqlar, jarimalar) bo‘lsa, uning BARCHA bandlarini "
-    "qamrab oling, birortasini tushirib qoldirmang. Har bir huquqiy da’vodan keyin manba "
+    "qamrab oling, birortasini tushirib qoldirmang. Ro‘yxatni bitta kirish jumlasi va uning "
+    "ostidagi qisqa bandlar shaklida bering; har bir bandda bir xil jumlani takrorlamang. "
+    "Agar manbada istisno bo‘lsa (nima "
+    "hisoblanMAYdi, qaysi holatda qo‘llanilmaydi), uni ro‘yxatning ichiga qo‘shmang — "
+    "ro‘yxatdan keyin «Istisno:» deb alohida yozing. Band raqamini faqat manbada aniq "
+    "ko‘rsatilgan bo‘lsa yozing. Har bir huquqiy da’vodan keyin manba "
     "identifikatorini bering. Hujjat nomi, raqami, sanasi, modda, band, iqtibos, URL yoki "
     "citation uydirmang. Manbada so‘z bilan yozilgan sonlarni o‘zgartirmang. Manbada mavjud "
     "oqibatlarni (taqiqlanishi, haqiqiy emas deb topilishi, sanksiya) albatta bayon qiling, "
@@ -563,6 +568,20 @@ async def generate_grounded_legal(system: str, prompt: str,
                               "validation_failed")
 
 
+# The model sometimes opens with its own task restated as a heading, e.g.
+# "Qisqacha mazmun (faktlarga sodiq, har bir faktdan keyin [1] citation):".
+# That line is the instruction echoed back, not content, so it is dropped.
+ECHOED_INSTRUCTION_RE = re.compile(
+    r"\A\s*(?:[#*_\s]*)?(?:qisqacha mazmun|asosiy bandlar|javob|xulosa)\b[^\n]*"
+    r"(?:faktlarga sodiq|citation|\[1\]|hujjat parchalari)[^\n]*:[*_\s]*\n+",
+    re.IGNORECASE,
+)
+
+
+def strip_echoed_instruction(text: str) -> str:
+    return ECHOED_INSTRUCTION_RE.sub("", text, count=1)
+
+
 async def generate_grounded_document(system: str, prompt: str,
                                      sources: list[dict], *,
                                      allow_external: bool = True) -> GroundedGeneration:
@@ -592,6 +611,7 @@ async def generate_grounded_document(system: str, prompt: str,
                                            max_tokens=budget)
             # "fakt[1]" -> "fakt [1]": purely typographic, keeps the citation intact.
             generated = re.sub(r"(?<=[^\s\[(])(\[\d+(?:\s*,\s*\d+)*\])", r" \1", generated)
+            generated = strip_echoed_instruction(generated)
             generated = repair_document_citations(generated, sources)
             validation = validate_cited_answer(generated, sources)
             if validation.valid:

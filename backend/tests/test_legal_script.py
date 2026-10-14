@@ -65,3 +65,8 @@ def test_source_cards_keep_the_official_cyrillic_script():
     _, used = extractive_legal_fallback(SOURCES, question="ustun mavqe mezonlari")
     assert CYRILLIC_RE.search(used[0]["excerpt"])
     assert used[0]["article_or_clause"] == "13-модда. Устун мавқе"
+
+
+def test_misspelt_yurituvchi_is_corrected():
+    assert latin_legal_answer("xo‘jalik yo‘rituvchi subyekt") == "xo‘jalik yurituvchi subyekt"
+    assert latin_legal_answer("Xo‘jalik Yo'rituvchi") == "Xo‘jalik Yurituvchi"

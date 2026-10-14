@@ -108,6 +108,21 @@ def _share_threshold(facts: LegalSourceFacts) -> Decimal | None:
     return facts.percentages[0] if len(facts.percentages) == 1 else None
 
 
+# Phrases that ask for the norm's own enumeration rather than for an explanation.
+ASKS_FOR_STATUTORY_LIST_RE = re.compile(
+    r"mezon\w*"                                   # "mezonlarini top"
+    r"|shart(?:lar)?\w*\s+(?:qanday|qaysi|nima)"   # "shartlari qanday"
+    r"|ro'yxat\w*"
+    r"|qanday\s+harakat\w*"                       # "qanday harakatlarni o'z ichiga oladi"
+    r"|qaysi\s+harakat\w*"
+    r"|(?:qanday|qaysi)\s+hollarda"
+    r"|nimalar\s+(?:taqiqlan|kirad)\w*"
+    r"|(?:jarima|sank[t]?siya)\w*\s+(?:qancha|miqdor\w*|qanday|qaysi)"
+    r"|(?:qancha|qanday|qaysi)\s+(?:jarima|sank[t]?siya)\w*",
+    re.IGNORECASE,
+)
+
+
 def _enumerated_clauses(facts: LegalSourceFacts) -> tuple[str, list[str]] | None:
     """The article's own enumeration, in document order.
 
@@ -162,6 +177,21 @@ def deterministic_legal_fact_answer(question: str,
                 f"boshqa shartlar va istisnolar ham tekshiriladi. {_citation(facts.source)}"
             )
             return answer, [facts.source]
+
+    # A question that literally asks for a statutory list is answered with that list,
+    # verbatim. Paraphrasing a norm is where meaning gets lost: asked to shorten the
+    # dominance criteria the model turned the article's exclusion ("... is NOT deemed
+    # dominant") into one more criterion. Definitions and explanations still go to the
+    # model; only an explicit request for the list itself takes this path.
+    if ASKS_FOR_STATUTORY_LIST_RE.search(concepts.normalized):
+        for facts in parsed[:1]:
+            enumerated = _enumerated_clauses(facts)
+            if not enumerated:
+                continue
+            lead, items = enumerated
+            lines = [f"**{facts.label}.** {lead} {_citation(facts.source)}"]
+            lines.extend(f"- {item} {_citation(facts.source)}" for item in items)
+            return "\n".join(lines), [facts.source]
 
     # "Which article regulates X?" is a lookup, not an explanation: the article label,
     # its official title and its opening sentence answer it exactly and instantly.
