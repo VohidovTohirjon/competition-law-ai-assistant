@@ -70,3 +70,43 @@ def test_source_cards_keep_the_official_cyrillic_script():
 def test_misspelt_yurituvchi_is_corrected():
     assert latin_legal_answer("xo‘jalik yo‘rituvchi subyekt") == "xo‘jalik yurituvchi subyekt"
     assert latin_legal_answer("Xo‘jalik Yo'rituvchi") == "Xo‘jalik Yurituvchi"
+
+
+def test_validator_accepts_latin_answer_over_cyrillic_years_acts_and_articles():
+    """The answer is Latin while the statute is Cyrillic: a year, an act number and an
+    inflected article reference that the evidence does contain must not be rejected."""
+    from app.services.grounding import validate_legal_answer
+
+    source = {
+        "citation_number": 1,
+        "document_name": "Raqobat to‘g‘risida (O‘RQ-850)",
+        "article_or_clause": "45-модда. Айрим қонун ҳужжатларини ўз кучини йўқотган деб топиш",
+        "full_excerpt": ("Ўзбекистон Республикасининг 2012 йил 6 январдаги ЎРҚ-319-сонли "
+                         "Қонуни 12-моддасининг иккинчи қисми ўз кучини йўқотган деб топилсин."),
+    }
+    answer = ("2012 yil 6 yanvardagi O‘RQ-319-sonli Qonun 12-moddasining ikkinchi qismi "
+              "o‘z kuchini yo‘qotgan deb topiladi [1].")
+    result = validate_legal_answer(answer, [source])
+    assert result.valid, result.violations
+
+    invented = answer.replace("2012", "2014").replace("319", "391").replace("12-moddasi", "17-moddasi")
+    rejected = validate_legal_answer(invented, [source])
+    assert {"date_unsupported", "document_id_unsupported", "article_unsupported"} <= set(rejected.codes)
+
+
+def test_figure_must_appear_as_a_whole_number_in_evidence():
+    """"15" is not evidenced by "2015" or "815-sonli", nor 150 by "ikki yuz ellik" (250)."""
+    from app.services.grounding import validate_legal_answer
+
+    source = {
+        "citation_number": 1,
+        "document_name": "Raqobat to‘g‘risida (O‘RQ-850)",
+        "article_or_clause": "42-modda. Moliyaviy sanksiyalar",
+        "full_excerpt": ("2015 yil 20 avgustdagi 815-sonli qaror. Jarima bazaviy hisoblash "
+                         "miqdorining ikki yuz ellik baravari miqdorida, ulush qirq foiz."),
+    }
+    ok = validate_legal_answer("Ulush 40 foiz, jarima 250 baravar [1].", [source])
+    assert ok.valid, ok.violations
+    for invented in ("Ulush 15 foiz [1].", "Jarima 150 baravar [1].", "Muddat 20 kun, ulush 81 foiz [1]."):
+        result = validate_legal_answer(invented, [source])
+        assert "number_unsupported" in result.codes, invented

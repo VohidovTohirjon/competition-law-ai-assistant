@@ -8,7 +8,9 @@ APOSTROPHES = str.maketrans({
 })
 CITATION_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 ARTICLE_RE = re.compile(
-    r"\b(\d{1,3})\s*[-‐‑‒–—.]?\s*(modda|modd|modde|модда|статья)(?:si|ning|da)?\b",
+    # Uzbek inflects the noun: "13-moddasi", "13-moddasining", "моддасида".
+    r"\b(\d{1,3})\s*[-‐‑‒–—.]?\s*(modda|modd|modde|модда|статья)"
+    r"(?:si|си)?(?:ning|нинг|da|да|ga|га|ni|ни|dan|дан)?\b",
     re.IGNORECASE,
 )
 DOCUMENT_ID_RE = re.compile(
@@ -106,10 +108,20 @@ BAND_RE = re.compile(
     r"\b(\d{1,3})\s*[-‐‑‒–—.]?\s*(?:band|банд)(?:i|ida|da|ning|lar\w*)?\b", re.IGNORECASE)
 
 
+def _evidence_forms(raw: str) -> str:
+    """Evidence in both its official script and Latin transliteration.
+
+    The answer is checked in Latin script while the statute is stored in Cyrillic, so
+    a year ("2019 йил"), an act number ("ЎРҚ-59") or an inflected article reference
+    ("12-моддаси") in the evidence must also be found in its Latin form.
+    """
+    return f"{raw}\n{_map_cyrillic(raw)}"
+
+
 def _allowed_band_numbers(sources: list[dict]) -> set[int]:
     result: set[int] = set()
     for source in sources:
-        raw = f"{source.get('article_or_clause') or ''}\n{_evidence_of(source)}"
+        raw = _evidence_forms(f"{source.get('article_or_clause') or ''}\n{_evidence_of(source)}")
         result.update(int(match.group(1)) for match in BAND_RE.finditer(raw))
     return result
 
@@ -117,7 +129,7 @@ def _allowed_band_numbers(sources: list[dict]) -> set[int]:
 def _allowed_article_numbers(sources: list[dict]) -> set[int]:
     result: set[int] = set()
     for source in sources:
-        raw = f"{source.get('article_or_clause') or ''}\n{_evidence_of(source)}"
+        raw = _evidence_forms(f"{source.get('article_or_clause') or ''}\n{_evidence_of(source)}")
         for match in ARTICLE_RE.finditer(raw):
             result.add(int(match.group(1)))
     return result
@@ -126,7 +138,7 @@ def _allowed_article_numbers(sources: list[dict]) -> set[int]:
 def _allowed_document_ids(sources: list[dict]) -> set[str]:
     values: set[str] = set()
     for source in sources:
-        raw = f"{source.get('document_name') or ''}\n{_evidence_of(source)}"
+        raw = _evidence_forms(f"{source.get('document_name') or ''}\n{_evidence_of(source)}")
         values.update(normalize_text(match.group(0)) for match in DOCUMENT_ID_RE.finditer(raw))
     return values
 
@@ -211,14 +223,21 @@ def _compact_digits(text: str) -> str:
 
 
 def _number_supported(number: str, normalized_evidence: str, latin_evidence: str) -> bool:
-    if number in normalized_evidence:
+    # A whole figure, not a substring: "15" is not supported by "2015" or "815-sonli".
+    if re.search(rf"(?<![\d.,]){re.escape(number)}(?![\d]|[.,]\d)", normalized_evidence):
         return True
     # Official texts often spell figures out ("қирқ фоиз", "ўттиз минг баравари");
-    # the model legitimately renders them as digits.
+    # the model legitimately renders them as digits. Whole words only: "yuz ellik"
+    # (150) is not supported by "ikki yuz ellik" (250).
     if number.isdigit():
         words = _number_in_words(int(number))
-        if words and words in latin_evidence:
-            return True
+        if words:
+            number_words = set(_UNITS_WORDS.values()) | set(_TENS_WORDS.values()) | {"yuz", "ming"}
+            for match in re.finditer(rf"(?<![\w']){re.escape(words)}(?![\w'])", latin_evidence):
+                before = re.findall(r"[\w']+", latin_evidence[:match.start()])[-1:]
+                after = re.findall(r"[\w']+", latin_evidence[match.end():])[:1]
+                if not (set(before) | set(after)) & number_words:
+                    return True
     return False
 
 
@@ -283,7 +302,7 @@ def validate_legal_answer(answer: str, sources: list[dict],
 
     for match in LEGAL_YEAR_RE.finditer(checked):
         year = normalize_text(match.group(0))
-        if not any(year in normalize_text(_evidence_of(source)) for source in sources):
+        if not any(year in normalize_text(_evidence_forms(_evidence_of(source))) for source in sources):
             fail("date_unsupported", f"Dalilda yo‘q huquqiy sana: {year}")
 
     for match in LEGAL_TITLE_RE.finditer(checked):
