@@ -551,7 +551,31 @@ def _search_with_vector(db: Session, query: str, vector: list[float], user: User
         )
 
     ranked = sorted(candidates, key=stable_rank)
-    return ranked[:limit]
+    top = ranked[:limit]
+    for item in top:
+        # Kept on the (non-persisted) instance so the source card can say WHY it was chosen.
+        item.match_info = {
+            "semantic": semantic_scores[item.id], "intent": intent_scores[item.id],
+            "title": title_scores[item.id], "article": _matches_requested_article(query, item),
+        }
+    return top
+
+
+def match_reason(chunk: Chunk) -> str | None:
+    """One plain sentence explaining why retrieval picked this chunk (None when unknown)."""
+    info = getattr(chunk, "match_info", None)
+    if not info:
+        return None
+    if info["article"]:
+        why = "savolda shu modda aniq so‘ralgan"
+    elif info["intent"] > 0:
+        why = "savoldagi huquqiy tushuncha shu moddaning mavzusiga mos"
+    elif info["title"] >= 0.3:
+        why = "modda sarlavhasi savoldagi so‘zlarga mos"
+    else:
+        why = "matn mazmuni savolga yaqin"
+    percent = max(0, min(100, round(info["semantic"] * 100)))
+    return f"{why[:1].upper()}{why[1:]} (ma’no yaqinligi {percent}%)"
 
 
 def search(db: Session, query: str, user: User, corpus_type: str,
@@ -635,6 +659,7 @@ def sources_from_chunks(chunks: list[Chunk]) -> list[dict]:
             "evidence_type": evidence_type,
             "document_type": document_type,
             "official_number": official_number,
+            "match_reason": match_reason(chunk),
         })
     return result
 

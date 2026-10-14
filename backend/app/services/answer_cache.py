@@ -16,7 +16,7 @@ from pathlib import Path
 
 from ..config import get_settings
 
-CACHE_VERSION = "v3"
+CACHE_VERSION = "v4"
 TTL_SECONDS = 24 * 3600
 MAX_ENTRIES = 400
 

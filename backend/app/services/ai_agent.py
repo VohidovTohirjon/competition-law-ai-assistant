@@ -723,7 +723,8 @@ async def run_chat(db: Session, user: User, question: str, mode: str = "legal") 
     if cached:
         logger.info("chat mode=%s cache=hit elapsed_ms=%s", "legal" if legal else "general",
                     round((time.monotonic() - started) * 1000))
-        return ChatOutcome(cached["answer"], cached["sources"], "ok", cached.get("warning"),
+        # A stored answer predates later wording fixes; run it through the same pass as a fresh one.
+        return ChatOutcome(latin_legal_answer(cached["answer"]), cached["sources"], "ok", cached.get("warning"),
                            cached["operation"], cached["effective_mode"], routed)
     if not legal:
         # A genuinely general question never touches vector retrieval, legal topic

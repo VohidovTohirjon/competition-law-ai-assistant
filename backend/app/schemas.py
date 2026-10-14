@@ -65,6 +65,7 @@ class SourceOut(BaseModel):
     evidence_type: Literal["nhh", "document"] = "document"
     document_type: str | None = None
     official_number: str | None = None
+    match_reason: str | None = None
 
 
 class AiResponse(BaseModel):
