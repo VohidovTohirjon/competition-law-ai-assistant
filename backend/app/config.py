@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     # creates. It is never applied to accounts that already exist, is never used by
     # the application at runtime, and must not be set in a production deployment.
     local_seed_password: str = "12345678"
+    # Shared secret of the public Cloudflare gateway. Requests that arrive through a
+    # tunnel (they carry CF-Connecting-IP) must present it; direct local requests need
+    # nothing. Empty means "no gateway configured", and tunnelled requests are refused.
+    gateway_key: str = ""
 
     @property
     def cors_list(self) -> list[str]:

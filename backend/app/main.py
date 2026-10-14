@@ -1,4 +1,5 @@
 import asyncio
+import secrets
 from contextlib import asynccontextmanager
 
 import logging
@@ -70,6 +71,23 @@ def health():
         "embedding": embeddings.status()["state"],
         "llm_provider": settings.llm_provider,
     }
+
+
+@app.middleware("http")
+async def gateway_guard(request: Request, call_next):
+    """Only the Cloudflare gateway may reach the API through a public tunnel.
+
+    A request that went through the tunnel carries CF-Connecting-IP. Without the shared
+    gateway key it is refused, so the random tunnel URL alone gives no access. Local
+    traffic (Vite dev server, curl, tests) has no such header and is unaffected.
+    """
+    if request.url.path.startswith("/api/") and request.headers.get("cf-connecting-ip"):
+        expected = settings.gateway_key
+        given = request.headers.get("x-gateway-key", "")
+        if not expected or not secrets.compare_digest(given.encode(), expected.encode()):
+            return JSONResponse(status_code=403, content={
+                "detail": "Bu manzilga faqat rasmiy darvoza orqali kirish mumkin."})
+    return await call_next(request)
 
 
 @app.middleware("http")

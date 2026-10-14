@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raqobat AI Assistant</title>
+<meta name="description" content="Raqobat qo‘mitasi xodimlari uchun AI yordamchi. Har bir javob qonun moddasiga tayanadi va chiqishdan oldin tekshiriladi.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23143A2E'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='Georgia,serif' font-weight='700'%3ER%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #F4F6F3;
+    --surface: #FFFFFF;
+    --ink: #13201B;
+    --muted: #55655E;
+    --rule: #D8E0DB;
+    --green: #143A2E;
+    --green-mid: #1F5C47;
+    --green-soft: #E3EDE8;
+    --accent: #B4521F;
+    --ok: #1C7A4F;
+    --off: #8A5A12;
+    --shadow: 0 1px 2px rgba(19,32,27,.06), 0 18px 40px -22px rgba(19,32,27,.35);
+    --display: "Spectral", Georgia, serif;
+    --body: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0E1613; --surface: #15211C; --ink: #E5ECE8; --muted: #93A59D;
+      --rule: #25332D; --green: #0A241B; --green-mid: #5FBF9C; --green-soft: #17302A;
+      --accent: #E08A57; --ok: #5FD39A; --off: #E0B060;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px -22px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0E1613; --surface: #15211C; --ink: #E5ECE8; --muted: #93A59D;
+    --rule: #25332D; --green: #0A241B; --green-mid: #5FBF9C; --green-soft: #17302A;
+    --accent: #E08A57; --ok: #5FD39A; --off: #E0B060;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 40px -22px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--body);
+         font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* top bar */
+  header.top { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .mark { width: 36px; height: 36px; border-radius: 8px; background: var(--green); color: #fff;
+          display: grid; place-items: center; font: 700 21px/1 var(--display); }
+  .brand b { font-weight: 600; font-size: 16px; letter-spacing: -.005em; }
+  .lang { display: flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .lang button { font: 500 12px var(--mono); letter-spacing: .08em; padding: 7px 12px; border: 0;
+                 background: transparent; color: var(--muted); cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: var(--green); color: #fff; }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 56px;
+          align-items: center; padding: 34px 0 72px; }
+  .eyebrow { font: 500 12px var(--mono); letter-spacing: .14em; text-transform: uppercase;
+             color: var(--green-mid); margin: 0 0 18px; }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(40px, 5.6vw, 66px);
+       line-height: 1.04; letter-spacing: -.02em; margin: 0 0 22px; text-wrap: balance; }
+  h1 em { font-style: italic; font-weight: 600; color: var(--accent); }
+  .lead { font-size: 19px; color: var(--muted); max-width: 46ch; margin: 0 0 30px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 26px; }
+  .btn { display: inline-flex; align-items: center; gap: 9px; font: 600 15px var(--body);
+         padding: 13px 22px; border-radius: 7px; text-decoration: none; border: 1px solid var(--green);
+         background: var(--green); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--rule); }
+  .btn:hover { filter: brightness(1.12); }
+  .btn.ghost:hover { background: var(--green-soft); filter: none; }
+
+  .live { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font: 500 12.5px var(--mono);
+          padding: 6px 12px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .chip[data-state="on"] .dot { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent); }
+  .chip[data-state="off"] .dot { background: var(--off); }
+  .live code { font-family: var(--mono); font-size: 13px; background: var(--green-soft); padding: 2px 7px; border-radius: 4px; color: var(--ink); }
+
+  .shot { margin: 0; position: relative; }
+  .shot img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--rule); box-shadow: var(--shadow); }
+  .shot a { display: block; cursor: zoom-in; }
+
+  /* numbers */
+  .numbers { display: grid; grid-template-columns: repeat(4, 1fr); border-block: 1px solid var(--rule); }
+  .numbers div { padding: 26px 22px; border-left: 1px solid var(--rule); }
+  .numbers div:first-child { border-left: 0; padding-left: 0; }
+  .numbers b { display: block; font: 600 38px/1.1 var(--display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .numbers span { font-size: 14px; color: var(--muted); }
+
+  section { padding: 84px 0 0; }
+  h2 { font-family: var(--display); font-weight: 600; font-size: clamp(28px, 3.6vw, 40px); line-height: 1.14;
+       letter-spacing: -.012em; margin: 0 0 14px; text-wrap: balance; max-width: 22ch; }
+  .sub { color: var(--muted); max-width: 56ch; margin: 0 0 38px; }
+
+  /* features */
+  .features { display: grid; gap: 56px; }
+  .feature { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 36px; align-items: center; }
+  .feature:nth-child(even) .ftext { order: 2; }
+  .ftext small { font: 500 12px var(--mono); letter-spacing: .12em; color: var(--green-mid); }
+  .ftext h3 { font: 600 26px/1.2 var(--display); margin: 8px 0 12px; letter-spacing: -.01em; }
+  .ftext p { margin: 0; color: var(--muted); font-size: 16px; }
+  .fshot { margin: 0; }
+  .fshot a { display: block; cursor: zoom-in; }
+  .fshot img { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--rule); box-shadow: var(--shadow); }
+  .fshot a:hover img { box-shadow: 0 1px 2px rgba(19,32,27,.08), 0 26px 50px -22px rgba(19,32,27,.45); }
+
+  /* lightbox */
+  dialog.zoom { border: 0; padding: 0; background: transparent; max-width: min(96vw, 1600px); max-height: 94vh; }
+  dialog.zoom::backdrop { background: rgba(10, 18, 15, .78); backdrop-filter: blur(3px); }
+  dialog.zoom img { display: block; max-width: 96vw; max-height: 92vh; width: auto; height: auto; border-radius: 10px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
+  dialog.zoom button { position: fixed; top: 14px; right: 18px; font: 600 15px var(--body); color: #fff; background: rgba(255,255,255,.14);
+                       border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+
+  /* layers */
+  .layers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .layer { padding: 26px 24px 28px; border-left: 1px solid var(--rule); position: relative; }
+  .layer:first-child { border-left: 0; }
+  .layer small { font: 500 11.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--green-mid); }
+  .layer h3 { font: 600 20px var(--display); margin: 8px 0 10px; }
+  .layer p { margin: 0; font-size: 15px; color: var(--muted); line-height: 1.55; }
+  .layer code { font: 500 12.5px var(--mono); color: var(--ink); background: var(--green-soft); padding: 1px 6px; border-radius: 3px; }
+  .layer:last-child { background: var(--green); }
+  .layer:last-child h3, .layer:last-child p { color: #fff; }
+  .layer:last-child small { color: #9FE0C3; }
+  .layer:last-child code { background: rgba(255,255,255,.14); color: #fff; }
+  .layers-note { margin: 18px 0 0; font-size: 15px; color: var(--muted); max-width: 70ch; }
+
+  /* trust */
+  .trust { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 56px; }
+  .trust div { padding: 22px 0; border-top: 1px solid var(--rule); }
+  .trust b { display: block; font-weight: 600; margin-bottom: 4px; }
+  .trust span { color: var(--muted); font-size: 16px; }
+
+  .stack { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .stack li { font: 500 13px var(--mono); padding: 8px 14px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+
+  /* demo box */
+  .demo { display: grid; grid-template-columns: 1.2fr .8fr; gap: 40px; padding: 36px; border-radius: 12px;
+          background: var(--green); color: #fff; }
+  .demo h2 { color: #fff; max-width: none; }
+  .demo p { color: #CFE6DB; margin: 0 0 12px; }
+  .demo ul { margin: 0; padding-left: 20px; color: #CFE6DB; }
+  .demo li { margin-bottom: 6px; }
+  .cred { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 9px; padding: 22px; align-self: start; }
+  .cred dt { font: 500 11.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: #9FE0C3; margin-top: 12px; }
+  .cred dt:first-child { margin-top: 0; }
+  .cred dd { margin: 4px 0 0; font: 500 19px var(--mono); }
+  .cred .btn { margin-top: 20px; background: #fff; color: var(--green); border-color: #fff; width: 100%; justify-content: center; }
+
+  footer { padding: 64px 0 56px; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+
+  [lang-en] { display: none; }
+  html[lang="en"] [lang-uz] { display: none; }
+  html[lang="en"] [lang-en] { display: revert; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 36px; padding-bottom: 52px; }
+    .layers, .numbers { grid-template-columns: repeat(2, 1fr); }
+    .feature { grid-template-columns: 1fr; gap: 16px; }
+    .feature:nth-child(even) .ftext { order: 0; }
+    .layer:nth-child(3) { border-left: 0; }
+    .layer:nth-child(n+3) { border-top: 1px solid var(--rule); }
+    .numbers div:nth-child(3) { border-left: 0; padding-left: 0; }
+    .numbers div:nth-child(n+3) { border-top: 1px solid var(--rule); }
+    .trust, .demo { grid-template-columns: 1fr; }
+    .demo { padding: 26px; gap: 26px; }
+  }
+  @media (max-width: 520px) {
+    .wrap { padding: 0 18px; }
+    .layers { grid-template-columns: 1fr; }
+    .layer { border-left: 0; border-top: 1px solid var(--rule); }
+    .layer:first-child { border-top: 0; }
+    section { padding-top: 64px; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <a class="brand" href="/"><span class="mark">R</span><b>Raqobat AI Assistant</b></a>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-set="uz" aria-pressed="true">UZ</button>
+      <button type="button" data-set="en" aria-pressed="false">EN</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div>
+      <p class="eyebrow"><span lang-uz>Raqobat qo‘mitasi uchun</span><span lang-en>For a competition authority</span></p>
+      <h1>
+        <span lang-uz>Qonunni topadi. <em>Dalilini</em> ko‘rsatadi.</span>
+        <span lang-en>Finds the law. <em>Shows the proof.</em></span>
+      </h1>
+      <p class="lead">
+        <span lang-uz>Xodim savol beradi, tizim kerakli qonun moddasini topadi va javob yozadi. Javobdagi har bir modda, son va sana qonun matni bilan solishtiriladi, shundan keyingina ekranga chiqadi.</span>
+        <span lang-en>An officer asks a question. The system finds the right article of the law and writes an answer. Every article, number and date in that answer is checked against the statute text before it reaches the screen.</span>
+      </p>
+      <div class="cta">
+        <a class="btn" href="/app/"><span lang-uz>Jonli ilovani ochish</span><span lang-en>Open the live app</span> →</a>
+        <a class="btn ghost" href="https://github.com/VohidovTohirjon/competition-law-ai-assistant" rel="noopener">GitHub</a>
+      </div>
+      <div class="live">
+        <span class="chip" id="status" data-state="wait"><span class="dot"></span><span id="status-text">…</span></span>
+        <span>
+          <span lang-uz>Kirish:</span><span lang-en>Sign in:</span>
+          <code>demo</code> / <code>Dalil-Demo-26</code>
+        </span>
+      </div>
+    </div>
+    <figure class="shot">
+      <a href="/img/legal-answer.jpg" data-zoom><img src="/img/legal-answer.jpg" alt="Ustun mavqe mezonlari bo‘yicha javob: 13-modda, manba belgilari bilan" width="1800" height="1125" fetchpriority="high"></a>
+    </figure>
+  </div>
+
+  <div class="numbers">
+    <div><b>49</b><span lang-uz>modda indekslangan qonun</span><span lang-en>articles in the indexed law</span></div>
+    <div><b>115</b><span lang-uz>vektorga aylantirilgan matn parchasi</span><span lang-en>text chunks turned into vectors</span></div>
+    <div><b>0,02 s</b><span lang-uz>modelsiz javob beriladigan savollar</span><span lang-en>answers that need no model call</span></div>
+    <div><b>191</b><span lang-uz>avtomatik test, hammasi o‘tadi</span><span lang-en>automated tests, all passing</span></div>
+  </div>
+
+  <section>
+    <h2><span lang-uz>Ichida nima bor</span><span lang-en>What it does</span></h2>
+    <p class="sub">
+      <span lang-uz>To‘rtta ish jarayoni, hammasi bitta oynada. Rasmlar ishlab turgan ilovadan olingan, bosib kattalashtirish mumkin.</span>
+      <span lang-en>Four workflows in one window. The images are from the running application; click any of them to enlarge.</span>
+    </p>
+    <div class="features">
+      <article class="feature">
+        <div class="ftext">
+          <small>01</small>
+          <h3><span lang-uz>Huquqiy savol</span><span lang-en>Legal question</span></h3>
+          <p><span lang-uz>Xodim «Ustun mavqeni aniqlash mezonlari qanday?» deb so‘radi. Tizim 13-moddani topdi va mezonlarni qonundagi tartibda, to‘liq va har bir band yonida manba belgisi bilan chiqardi. Bu savolga model umuman chaqirilmadi: ro‘yxat qonun matnidan so‘zma-so‘z olinadi.</span>
+             <span lang-en>An officer asked “What are the criteria for a dominant position?”. The system found article 13 and listed the criteria in the statute’s own order, complete, with a source mark next to each one. No model call was needed for this question: the list is taken verbatim from the law.</span></p>
+        </div>
+        <figure class="fshot"><a href="/img/legal-answer.jpg" data-zoom><img loading="lazy" src="/img/legal-answer.jpg" alt="Huquqiy javob: 13-modda mezonlari" width="1800" height="1125"></a></figure>
+      </article>
+      <article class="feature">
+        <div class="ftext">
+          <small>02</small>
+          <h3><span lang-uz>Hujjat tahlili</span><span lang-en>Document analysis</span></h3>
+          <p><span lang-uz>Murojaat yuklanadi, tizim qisqacha mazmun, asosiy bandlar va bir-biriga zid joylarni chiqaradi. Hujjat bo‘yicha savol ham berish mumkin. Har bir fakt yonida u olingan parchaning raqami turadi, tasdiqlanmagan jumla ko‘rsatilmaydi.</span>
+             <span lang-en>Upload a complaint and the system produces a summary, the key points and any contradictions. You can also ask questions about the file. Every fact carries the number of the passage it came from; an unverified sentence is not shown.</span></p>
+        </div>
+        <figure class="fshot"><a href="/img/document-analysis.jpg" data-zoom><img loading="lazy" src="/img/document-analysis.jpg" alt="Hujjat tahlili: murojaatning qisqacha mazmuni" width="1800" height="1125"></a></figure>
+      </article>
+      <article class="feature">
+        <div class="ftext">
+          <small>03</small>
+          <h3><span lang-uz>Javob xati</span><span lang-en>Response letter</span></h3>
+          <p><span lang-uz>Murojaat va unga mos qonun moddalari asosida rasmiy javob xati loyihasi tuziladi: mavzu, murojaat mazmuni, huquqiy asos, ko‘rib chiqish natijasi, imzo. Word fayl sifatida yuklab olinadi, tashkilot rekvizitlari blankga o‘zi tushadi.</span>
+             <span lang-en>From the complaint and the matching articles the system drafts an official reply: subject, what was asked, legal basis, outcome, signature. It exports to Word with the organisation’s letterhead filled in.</span></p>
+        </div>
+        <figure class="fshot"><a href="/img/response-letter.jpg" data-zoom><img loading="lazy" src="/img/response-letter.jpg" alt="Javob xati loyihasi" width="1800" height="1125"></a></figure>
+      </article>
+      <article class="feature">
+        <div class="ftext">
+          <small>04</small>
+          <h3><span lang-uz>Rahbar paneli</span><span lang-en>Manager dashboard</span></h3>
+          <p><span lang-uz>Hujjatlar, topshiriqlar, kechikishlar va xodimlar yuklamasi bir ekranda. «Bugungi muammolarni ko‘rsat» degan savolga tizim bazadan hisoblab javob beradi, bu yerda ham model ishlatilmaydi.</span>
+             <span lang-en>Documents, tasks, overdue items and staff workload on one screen. Ask “show today’s problems” and the answer is computed from the database, again without a model.</span></p>
+        </div>
+        <figure class="fshot"><a href="/img/dashboard.jpg" data-zoom><img loading="lazy" src="/img/dashboard.jpg" alt="Rahbar paneli" width="1800" height="1125"></a></figure>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2><span lang-uz>Savol to‘rt bosqichdan o‘tadi</span><span lang-en>Every question passes four stages</span></h2>
+    <p class="sub">
+      <span lang-uz>Model qonunni yoddan bilmaydi. Har safar unga topilgan modda matni beriladi va yozgani shu matn bilan solishtiriladi.</span>
+      <span lang-en>The model does not know the law by heart. Each time it is handed the matching article, and what it writes is compared with that text.</span>
+    </p>
+    <div class="layers">
+      <div class="layer"><small>01</small>
+        <h3><span lang-uz>Yo‘naltirish</span><span lang-en>Routing</span></h3>
+        <p><span lang-uz>Savol qaysi yo‘lga ketishini hal qiladi. Ba’zi savollarga model umuman kerak emas.</span><span lang-en>Decides where the question goes. Some questions need no model at all.</span></p></div>
+      <div class="layer"><small>02</small>
+        <h3><span lang-uz>Qidiruv</span><span lang-en>Retrieval</span></h3>
+        <p><span lang-uz>Matnni ma’no bo‘yicha qidiradi: <code>bge-m3</code> va <code>pgvector</code>. 115 parchadan 3 tasini tanlaydi.</span><span lang-en>Searches by meaning with <code>bge-m3</code> and <code>pgvector</code>. Picks 3 of 115 chunks.</span></p></div>
+      <div class="layer"><small>03</small>
+        <h3><span lang-uz>Yozish</span><span lang-en>Writing</span></h3>
+        <p><span lang-uz>Til modeli faqat berilgan matndan javob tuzadi: <code>gpt-oss-120b</code>.</span><span lang-en>A language model writes the answer from the supplied text only: <code>gpt-oss-120b</code>.</span></p></div>
+      <div class="layer"><small>04</small>
+        <h3><span lang-uz>Tekshirish</span><span lang-en>Verification</span></h3>
+        <p><span lang-uz>Modda, band, son, sana va iqtibos qonun matnida bormi. Tasdiqlanmasa, model matni ko‘rsatilmaydi.</span><span lang-en>Is every article, clause, number, date and quote in the statute? If not, the model text is dropped.</span></p></div>
+    </div>
+    <p class="layers-note">
+      <span lang-uz>Odatdagi RAG uchinchi bosqichda tugaydi. To‘rtinchisi shu loyihaning asosiy farqi: model xato qilsa ham, foydalanuvchiga uydirma modda yetib bormaydi.</span>
+      <span lang-en>A typical RAG pipeline ends at stage three. Stage four is what sets this project apart: even when the model slips, an invented article never reaches the user.</span>
+    </p>
+  </section>
+
+  <section>
+    <h2><span lang-uz>Nega unga ishonish mumkin</span><span lang-en>Why it can be trusted</span></h2>
+    <div class="trust" style="margin-top:34px">
+      <div><b><span lang-uz>Manbasiz javob yo‘q</span><span lang-en>No source, no answer</span></b>
+        <span lang-uz>Mos modda topilmasa, tizim shuni aytadi. Taxmin qilib yozmaydi.</span>
+        <span lang-en>If no article matches, the system says so instead of guessing.</span></div>
+      <div><b><span lang-uz>Uydirma ushlanadi</span><span lang-en>Inventions are caught</span></b>
+        <span lang-uz>Umumiy rejimda model qonun nomi yoki jarima summasini aytsa, javob butunlay almashtiriladi.</span>
+        <span lang-en>In general mode, if the model names a law or a fine, the whole answer is replaced.</span></div>
+      <div><b><span lang-uz>Ma’lumot tashqariga chiqmaydi</span><span lang-en>Data stays in-house</span></b>
+        <span lang-uz>Qidiruv modeli o‘z serverda ishlaydi. Maxfiy hujjat tashqi xizmatga yuborilmaydi.</span>
+        <span lang-en>The embedding model runs on our own server. Confidential files are never sent out.</span></div>
+      <div><b><span lang-uz>Rollar va jurnal</span><span lang-en>Roles and audit trail</span></b>
+        <span lang-uz>Administrator, rahbar, xodim. Har bir amal audit jurnaliga yoziladi.</span>
+        <span lang-en>Administrator, manager, officer. Every action lands in an audit log.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span lang-uz>Nimalardan qurilgan</span><span lang-en>Built with</span></h2>
+    <ul class="stack" style="margin-top:28px">
+      <li>FastAPI</li><li>React + TypeScript</li><li>PostgreSQL + pgvector</li><li>BAAI/bge-m3</li>
+      <li>gpt-oss-120b</li><li>vLLM</li><li>Alembic</li><li>JWT + RBAC</li><li>python-docx</li><li>Docker</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="demo">
+      <div>
+        <h2><span lang-uz>Jonli namoyish haqida</span><span lang-en>About the live demo</span></h2>
+        <p>
+          <span lang-uz>Ilova muallifning o‘z kompyuterida ishlaydi va Cloudflare orqali ulanadi. Kompyuter yoqiq bo‘lsa yuqoridagi belgi yashil bo‘ladi. O‘chiq bo‘lsa, shu sahifaning o‘zi ochiq qoladi.</span>
+          <span lang-en>The application runs on the author’s own computer and is connected through Cloudflare. When that computer is on, the badge above turns green. When it is off, this page stays up on its own.</span>
+        </p>
+        <ul>
+          <li><span lang-uz>Namoyish hisobi faqat o‘qiydi va savol beradi. Yuklash, sozlash va boshqarish yopiq.</span><span lang-en>The demo account can read and ask. Uploads, settings and administration are closed.</span></li>
+          <li><span lang-uz>Soatiga 30 tagacha savol.</span><span lang-en>Up to 30 questions per hour.</span></li>
+          <li><span lang-uz>Bazada faqat ochiq qonun va uydirma namunaviy hujjatlar bor.</span><span lang-en>The database holds only a public law and fictional sample documents.</span></li>
+        </ul>
+      </div>
+      <dl class="cred">
+        <dt>Login</dt><dd>demo</dd>
+        <dt><span lang-uz>Parol</span><span lang-en>Password</span></dt><dd>Dalil-Demo-26</dd>
+        <a class="btn" href="/app/"><span lang-uz>Ilovani ochish</span><span lang-en>Open the app</span> →</a>
+      </dl>
+    </div>
+  </section>
+
+  <dialog class="zoom" id="zoom"><button type="button" id="zoom-close">✕</button><img alt=""></dialog>
+
+  <footer>
+    <span>Raqobat AI Assistant</span>
+    <span><a href="https://github.com/VohidovTohirjon/competition-law-ai-assistant" rel="noopener">github.com/VohidovTohirjon/competition-law-ai-assistant</a></span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var saved = null;
+  try { saved = localStorage.getItem("dalil_lang"); } catch (e) {}
+  var lang = saved || ((navigator.language || "uz").slice(0, 2) === "en" ? "en" : "uz");
+  function setLang(value) {
+    lang = value;
+    root.lang = value;
+    document.querySelectorAll(".lang button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.set === value));
+    });
+    try { localStorage.setItem("dalil_lang", value); } catch (e) {}
+    paint(lastState);
+  }
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.dataset.set); });
+  });
+
+  var chip = document.getElementById("status");
+  var text = document.getElementById("status-text");
+  var lastState = "wait";
+  var words = {
+    wait: { uz: "Tekshirilmoqda", en: "Checking" },
+    on:   { uz: "Jonli demo: onlayn", en: "Live demo: online" },
+    off:  { uz: "Jonli demo: hozir o‘chiq", en: "Live demo: offline right now" }
+  };
+  function paint(state) {
+    lastState = state;
+    chip.dataset.state = state;
+    text.textContent = words[state][lang];
+  }
+  function poll() {
+    fetch("/_status", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { paint(d.online ? "on" : "off"); })
+      .catch(function () { paint("off"); });
+  }
+  setLang(lang);
+  poll();
+
+  var dlg = document.getElementById("zoom"), dlgImg = dlg.querySelector("img");
+  document.querySelectorAll("a[data-zoom]").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      e.preventDefault(); dlgImg.src = a.getAttribute("href"); dlgImg.alt = a.querySelector("img").alt;
+      if (dlg.showModal) dlg.showModal(); else window.open(a.href, "_blank");
+    });
+  });
+  dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+  document.getElementById("zoom-close").addEventListener("click", function () { dlg.close(); });
+  setInterval(poll, 20000);
+})();
+</script>
+</body>
+</html>

@@ -5,6 +5,8 @@ It answers legal questions from the official statute base with article-level cit
 
 > 🇺🇿 O‘zbekcha to‘liq hujjat: **[docs/README.uz.md](docs/README.uz.md)**
 
+> 🌐 **Live demo: [dalilai.pages.dev](https://dalilai.pages.dev)** — showcase page is always online; the app itself runs on the author's machine and is reachable while it is on (sign in as `demo`, see the page). How it is wired: [deploy/cloudflare/README.md](deploy/cloudflare/README.md).
+
 **Stack:** Python 3.12 · FastAPI · PostgreSQL + pgvector · BAAI/bge-m3 embeddings · OpenAI-compatible LLM (self-hosted vLLM or Groq) · React 19 + TypeScript + Vite
 
 ---

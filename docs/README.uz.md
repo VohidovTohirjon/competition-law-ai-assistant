@@ -8,6 +8,8 @@ Raqobat qo‘mitasi rahbariyati va xodimlari uchun sun’iy intellektga asoslang
 
 ---
 
+> 🌐 **Jonli namoyish: [dalilai.pages.dev](https://dalilai.pages.dev)** — sahifa doim ochiq, ilovaning o‘zi muallif kompyuteri yoqiq bo‘lganda ishlaydi (`demo` hisobi sahifada ko‘rsatilgan).
+
 ## Skrinshotlar
 
 Ustun mavqe mezonlari — 13-moddadan, barcha mezonlar bilan, manba kartochkasi, rasmiy havola va foydalanilgan parcha:

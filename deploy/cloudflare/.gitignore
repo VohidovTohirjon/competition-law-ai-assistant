@@ -1,0 +1,4 @@
+site/app/
+*.zip
+.gateway.env
+.wrangler/

@@ -25,3 +25,15 @@ button:disabled{cursor:not-allowed;opacity:.58}.primary:disabled{cursor:not-allo
 .sources dl{grid-template-columns:minmax(96px,145px) minmax(0,1fr)}
 .sources dd{min-width:0;overflow-wrap:anywhere}
 @media(max-width:900px){.hero-card{flex-wrap:wrap;gap:14px}.sources dl{grid-template-columns:1fr}}
+
+/* Public demo (served under /app/): credentials hint on the login card, badge in the header. */
+.demo-hint{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:14px 16px;border:1px dashed var(--line);border-radius:12px;background:#f3f7f4;font-size:.86rem;color:var(--muted)}
+.demo-hint strong{color:var(--ink);width:100%}
+.demo-hint code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--pale);color:var(--ink);padding:2px 7px;border-radius:5px}
+.demo-hint .link{border:0;background:transparent;color:var(--green2);font-weight:700;padding:0;cursor:pointer}
+.demo-hint a{margin-left:auto;color:var(--muted);text-decoration:none}
+.demo-hint a:hover,.demo-hint .link:hover{text-decoration:underline}
+.status.demo{text-decoration:none;color:var(--green)}
+.status.demo i{background:#c9922b}
+@media(max-width:560px){.shield{display:none}.hero-card h2{font-size:1.55rem}.login-card{padding:9vh 7vw}}
+.offline-home{display:block;margin-top:14px;color:var(--muted);font-size:.9rem;text-decoration:none}.offline-home:hover{text-decoration:underline}
