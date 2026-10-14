@@ -1,6 +1,6 @@
 export type Role = 'administrator' | 'rahbar' | 'xodim'
 export interface User { id: string; username: string; full_name: string; role: Role; is_active: boolean; created_at: string; last_login_at?:string|null }
-export interface Source { citation_number?: number; document_id: string; document_name: string; article_or_clause?: string; display_label?:string; url: string; excerpt: string; full_excerpt?:string; page?: number; section?:string; evidence_type?:'nhh'|'document' }
+export interface Source { citation_number?: number; document_id: string; document_name: string; article_or_clause?: string; display_label?:string; url: string; excerpt: string; full_excerpt?:string; page?: number; section?:string; evidence_type?:'nhh'|'document'; match_reason?:string }
 export interface AiResult { history_id: string; answer: string; sources: Source[]; export_url?: string; official_export_url?:string; internal_evidence_url?:string; export_missing_fields?:string[]; result_kind: 'ok'|'source_matches'|'corpus_empty'|'no_sources'; warning?:string; effective_mode:'legal'|'general'; routed_to_legal:boolean; evidence_context?:'legal'|'document'|'draft'|'analytics'|'general'; structured?:Record<string,unknown> }
 export type LlmProviderState = 'not_configured'|'unreachable'|'unauthorized'|'model_missing'|'ready'
 export interface LlmProviderStatus { name:string; label:string; role:'primary'|'fallback'; state:LlmProviderState; model?:string|null; detail:string; reachable:boolean; model_loaded:boolean }

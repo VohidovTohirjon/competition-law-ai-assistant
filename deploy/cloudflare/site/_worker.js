@@ -20,6 +20,8 @@ const ALLOWED = [
   ["GET", /^\/api\/health$/],
   ["GET", /^\/api\/documents$/],
   ["GET", /^\/api\/documents\/[\w-]+$/],
+  ["GET", /^\/api\/documents\/[\w-]+\/download$/],
+  ["GET", /^\/api\/nhh\/[\w-]+\/download$/],
   ["POST", /^\/api\/documents\/[\w-]+\/analyze$/],
   ["POST", /^\/api\/chat$/],
   ["POST", /^\/api\/drafts$/],
@@ -37,6 +39,7 @@ const AI_PATHS = [/^\/api\/chat$/, /^\/api\/drafts$/, /^\/api\/documents\/[\w-]+
 const AI_LIMIT_PER_HOUR = 30;
 const LOGIN_LIMIT_PER_HOUR = 20;
 const MAX_BODY_BYTES = 20_000;
+const SAMPLE = 5;
 
 const json = (status, detail, extra = {}) =>
   new Response(JSON.stringify({ detail }), {
@@ -58,7 +61,9 @@ async function overLimit(env, bucket, ip, max) {
   try {
     const used = parseInt((await env.DALIL.get(key)) || "0", 10);
     if (used >= max) return true;
-    await env.DALIL.put(key, String(used + 1), { expirationTtl: 3700 });
+    // Sampled: write +SAMPLE once per ~SAMPLE calls. Unbiased on average, and it keeps
+    // the number of KV writes (1000/day on the free plan) at a fifth.
+    if (Math.random() < 1 / SAMPLE) await env.DALIL.put(key, String(used + SAMPLE), { expirationTtl: 3700 });
   } catch {
     // The counter must never take the demo down.
   }
@@ -77,10 +82,16 @@ async function ping(origin, env) {
   }
 }
 
+// Answered from memory for 30 s: open tabs poll every 20 s and must not each wake the laptop.
+// (A KV write per refresh would exceed the free plan's 1000 writes a day.)
+let statusMemo = { at: 0, online: false, origin: "" };
+
 async function handleStatus(env) {
   const origin = await backendOrigin(env);
-  const online = origin ? await ping(origin, env) : false;
-  return new Response(JSON.stringify({ online }), {
+  if (origin !== statusMemo.origin || Date.now() - statusMemo.at > 30_000) {
+    statusMemo = { at: Date.now(), online: origin ? await ping(origin, env) : false, origin: origin || "" };
+  }
+  return new Response(JSON.stringify({ online: statusMemo.online }), {
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
 }

@@ -88,8 +88,8 @@ qaytarib **xuddi shu savolni** qayta yuboring.
 
 ### 1:05–1:35 — Hujjat tahlili
 
-**Ekranda:** «Hujjatlar va tahlil» → `murojaat_raqobat.docx` ni tanlang →
-«Qisqacha mazmun». Javob chiqqach `qarama_qarshilik.docx` ni tanlab
+**Ekranda:** «Hujjatlar va tahlil» → `Murojaat (kelishuv alomatlari).docx` ni tanlang →
+«Qisqacha mazmun». Javob chiqqach `Qarama-qarshiliklar namunasi.docx` ni tanlab
 «Qarama-qarshiliklar» ni bosing (bu deyarli bir zumda ishlaydi).
 
 > «Hujjatlar bilan ishlash. Murojaatni tanlab, qisqacha mazmunini olamiz —
@@ -103,7 +103,7 @@ qaytarib **xuddi shu savolni** qayta yuboring.
 ### 1:35–2:10 — Javob xati va DOCX
 
 **Ekranda:** «Hujjat loyihalari» → Natija turi: «Javob xati» → Asosiy hujjat:
-`murojaat_raqobat.docx` → Qabul qiluvchi va chiqish raqamini to‘ldiring →
+`Murojaat (kelishuv alomatlari).docx` → Qabul qiluvchi va chiqish raqamini to‘ldiring →
 Topshiriq maydoniga yozing → «Loyiha tayyorlash».
 
 **Yozasiz:** `Ushbu murojaatga javob xatini tayyorla`

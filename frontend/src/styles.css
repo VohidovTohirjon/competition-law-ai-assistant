@@ -37,3 +37,4 @@ button:disabled{cursor:not-allowed;opacity:.58}.primary:disabled{cursor:not-allo
 .status.demo i{background:#c9922b}
 @media(max-width:560px){.shield{display:none}.hero-card h2{font-size:1.55rem}.login-card{padding:9vh 7vw}}
 .offline-home{display:block;margin-top:14px;color:var(--muted);font-size:.9rem;text-decoration:none}.offline-home:hover{text-decoration:underline}
+.match-reason{color:var(--green);font-weight:600}

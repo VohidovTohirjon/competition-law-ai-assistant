@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Raqobat AI Assistant</title>
 <meta name="description" content="Raqobat qo‘mitasi xodimlari uchun AI yordamchi. Har bir javob qonun moddasiga tayanadi va chiqishdan oldin tekshiriladi.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Raqobat AI Assistant">
+<meta property="og:description" content="Qonunni topadi, dalilini ko‘rsatadi. Raqobat qo‘mitasi uchun AI yordamchi: har bir javob qonun moddasiga tayanadi va chiqishdan oldin tekshiriladi.">
+<meta property="og:url" content="https://dalilai.pages.dev/">
+<meta property="og:image" content="https://dalilai.pages.dev/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Raqobat AI Assistant">
+<meta name="twitter:description" content="Finds the law. Shows the proof. A grounded legal AI assistant for a competition authority.">
+<meta name="twitter:image" content="https://dalilai.pages.dev/img/og.jpg">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23143A2E'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='Georgia,serif' font-weight='700'%3ER%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -157,6 +168,9 @@
 
   footer { padding: 64px 0 56px; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
 
+  .t-off { display: none; }
+  body[data-live="off"] .t-on { display: none; }
+  body[data-live="off"] .t-off { display: inline; }
   [lang-en] { display: none; }
   html[lang="en"] [lang-uz] { display: none; }
   html[lang="en"] [lang-en] { display: revert; }
@@ -206,7 +220,7 @@
         <span lang-en>An officer asks a question. The system finds the right article of the law and writes an answer. Every article, number and date in that answer is checked against the statute text before it reaches the screen.</span>
       </p>
       <div class="cta">
-        <a class="btn" href="/app/"><span lang-uz>Jonli ilovani ochish</span><span lang-en>Open the live app</span> →</a>
+        <a class="btn" id="open-app" href="/app/"><span class="t-on"><span lang-uz>Jonli ilovani ochish</span><span lang-en>Open the live app</span> →</span><span class="t-off"><span lang-uz>Demo hozir o‘chiq: skrinshotlarni ko‘ring</span><span lang-en>Demo is off: see the screenshots</span> ↓</span></a>
         <a class="btn ghost" href="https://github.com/VohidovTohirjon/competition-law-ai-assistant" rel="noopener">GitHub</a>
       </div>
       <div class="live">
@@ -226,7 +240,7 @@
     <div><b>49</b><span lang-uz>modda indekslangan qonun</span><span lang-en>articles in the indexed law</span></div>
     <div><b>115</b><span lang-uz>vektorga aylantirilgan matn parchasi</span><span lang-en>text chunks turned into vectors</span></div>
     <div><b>0,02 s</b><span lang-uz>modelsiz javob beriladigan savollar</span><span lang-en>answers that need no model call</span></div>
-    <div><b>191</b><span lang-uz>avtomatik test, hammasi o‘tadi</span><span lang-en>automated tests, all passing</span></div>
+    <div><b>193</b><span lang-uz>avtomatik test, hammasi o‘tadi</span><span lang-en>automated tests, all passing</span></div>
   </div>
 
   <section>
@@ -235,7 +249,7 @@
       <span lang-uz>To‘rtta ish jarayoni, hammasi bitta oynada. Rasmlar ishlab turgan ilovadan olingan, bosib kattalashtirish mumkin.</span>
       <span lang-en>Four workflows in one window. The images are from the running application; click any of them to enlarge.</span>
     </p>
-    <div class="features">
+    <div class="features" id="features">
       <article class="feature">
         <div class="ftext">
           <small>01</small>
@@ -344,7 +358,7 @@
       <dl class="cred">
         <dt>Login</dt><dd>demo</dd>
         <dt><span lang-uz>Parol</span><span lang-en>Password</span></dt><dd>Dalil-Demo-26</dd>
-        <a class="btn" href="/app/"><span lang-uz>Ilovani ochish</span><span lang-en>Open the app</span> →</a>
+        <a class="btn" id="open-app-2" href="/app/"><span class="t-on"><span lang-uz>Ilovani ochish</span><span lang-en>Open the app</span> →</span><span class="t-off"><span lang-uz>Hozir o‘chiq</span><span lang-en>Offline right now</span></span></a>
       </dl>
     </div>
   </section>
@@ -386,6 +400,11 @@
   };
   function paint(state) {
     lastState = state;
+    document.body.dataset.live = state === "off" ? "off" : "on";
+    ["open-app", "open-app-2"].forEach(function (id) {
+      var a = document.getElementById(id);
+      if (a) a.setAttribute("href", state === "off" ? (id === "open-app" ? "#features" : "#features") : "/app/");
+    });
     chip.dataset.state = state;
     text.textContent = words[state][lang];
   }
