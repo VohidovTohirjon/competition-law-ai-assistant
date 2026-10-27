@@ -27,6 +27,9 @@ function result(answer: string) {
   }
 }
 
+// The citation "[1]" is rendered as a ribboned numeral element, so the paragraph is matched by its full text.
+const answerText = (text: string) => (_: string, element: Element | null) => element?.tagName === 'P' && element.textContent === text
+
 describe('Chat reliability states', () => {
   beforeEach(() => vi.clearAllMocks())
   afterEach(() => { cleanup(); vi.unstubAllGlobals() })
@@ -78,11 +81,11 @@ describe('Chat reliability states', () => {
     await user.clear(input)
     await user.type(input, 'B savol')
     await user.click(screen.getByRole('button', { name: 'Savol yuborish' }))
-    expect(await screen.findByText('B javobi [1].')).not.toBeNull()
+    expect(await screen.findByText(answerText('B javobi 1.'))).not.toBeNull()
 
     resolveA(json(result('A kechikkan javobi.')))
     await waitFor(() => expect(screen.queryByText('A kechikkan javobi.')).toBeNull())
-    expect(screen.getByText('B javobi [1].')).not.toBeNull()
+    expect(screen.getByText(answerText('B javobi 1.'))).not.toBeNull()
   })
 
   it('sends the explicitly selected mode so the backend cannot re-route it', async () => {

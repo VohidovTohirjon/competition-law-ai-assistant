@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T00:00:00Z",
+  "title": "Design System: Raqobat AI Assistant",
+  "extensions": {
+    "colorMeta": {
+      "cloth": { "role": "primary", "displayName": "Spruce Cloth", "canonical": "#2C4A42", "tonalRamp": ["#0E1815", "#14241F", "#20382F", "#2C4A42", "#4F6D64", "#7A958B", "#A9BDB5", "#DDE7E1"] },
+      "gilt": { "role": "primary", "displayName": "Soft Gilt", "canonical": "#D9BC72", "tonalRamp": ["#3A2F14", "#6B5826", "#A98F55", "#D9BC72", "#E6CD8C", "#EEDDAE", "#F5EBCF", "#FBF7E9"] },
+      "ribbon": { "role": "secondary", "displayName": "Vermilion Ribbon", "canonical": "#C9402F", "tonalRamp": ["#3A0F0A", "#6B1D14", "#9E2F24", "#C9402F", "#DB6B5C", "#E8978B", "#F3C4BC", "#FBE7E4"] },
+      "paper": { "role": "neutral", "displayName": "Cold Paper", "canonical": "#EFF1EE", "tonalRamp": ["#17201C", "#4A5751", "#66726C", "#8FA097", "#B8C2BB", "#D5DBD6", "#EFF1EE", "#FFFFFF"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Landing H1 only; Bodoni Moda 700, optical size pinned." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles, hero card, login and landing section titles." },
+      "title": { "displayName": "Title", "purpose": "Card and section headings in the interface sans." },
+      "body-read": { "displayName": "Reading", "purpose": "Answers, passages, excerpts in PT Serif." },
+      "body-ui": { "displayName": "Interface", "purpose": "Forms, lists, tables, controls in Source Sans 3." },
+      "label": { "displayName": "Label", "purpose": "Field labels, badges, definition terms." },
+      "data": { "displayName": "Data", "purpose": "Ribbon numbers, folios, file names, credentials in Red Hat Mono." }
+    },
+    "shadows": [
+      { "name": "leaf-edge", "value": "0 1px 0 rgba(20,36,31,.04)", "purpose": "App cards." },
+      { "name": "plate-lift", "value": "0 22px 28px -22px rgba(20,36,31,.5)", "purpose": "Landing plates and reading leaf." },
+      { "name": "volume-drop", "value": "drop-shadow(0 30px 28px rgba(0,0,0,.5))", "purpose": "The open volume on the landing page." },
+      { "name": "drawer", "value": "18px 0 40px rgba(20,36,31,.35)", "purpose": "Mobile rail when open." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(.16, 1, .3, 1)", "purpose": "All transform transitions." },
+      { "name": "state", "value": "0.2s", "purpose": "Background, border, color changes." },
+      { "name": "lift", "value": "0.3s to 0.55s", "purpose": "Button rise 1-2px, tab rise, spine rise, drawer slide .35s." },
+      { "name": "ribbon-drop", "value": "1.1s drop 26px; .9s swing -3deg", "purpose": "Landing ribbon on load and on question change." },
+      { "name": "reduced-motion", "value": "all animation and transition disabled", "purpose": "prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "wide", "value": "1020px" },
+      { "name": "drawer", "value": "900px" },
+      { "name": "landing-stack", "value": "820px" },
+      { "name": "phone", "value": "560px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Cloth fill action, one per form.",
+      "html": "<button class=\"ds-btn-primary\">Kirish</button>",
+      "css": ".ds-btn-primary{background:#2C4A42;color:#fff;min-height:42px;padding:0 20px;border:1px solid #2C4A42;border-radius:4px;font:600 15px 'Source Sans 3',system-ui,sans-serif;box-shadow:0 1px 0 #14241F;cursor:pointer;transition:background .2s,transform .3s cubic-bezier(.16,1,.3,1)}.ds-btn-primary:hover{background:#36584F;transform:translateY(-1px)}.ds-btn-primary:focus-visible{outline:2px solid #2C4A42;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "White fill, cloth outline.",
+      "html": "<button class=\"ds-btn-secondary\">Bekor qilish</button>",
+      "css": ".ds-btn-secondary{background:#fff;color:#2C4A42;min-height:42px;padding:0 20px;border:1px solid #2C4A42;border-radius:4px;font:600 15px 'Source Sans 3',system-ui,sans-serif;cursor:pointer;transition:background .2s}.ds-btn-secondary:hover{background:#EAF0EC}.ds-btn-secondary:focus-visible{outline:2px solid #2C4A42;outline-offset:2px}"
+    },
+    {
+      "name": "Plate Button",
+      "kind": "button",
+      "refersTo": "button-plate",
+      "description": "Landing call to action on cloth; one per view.",
+      "html": "<a class=\"ds-plate\" href=\"#\">Jonli ilovani ochish</a>",
+      "css": ".ds-plate{display:inline-flex;align-items:center;min-height:56px;padding:0 30px;background:#D9BC72;color:#14241F;font:600 17px 'Source Sans 3',system-ui,sans-serif;text-decoration:none;border-radius:2px;box-shadow:0 10px 18px -8px rgba(0,0,0,.6);transition:transform .35s cubic-bezier(.16,1,.3,1),background .2s}.ds-plate:hover{background:#E6CD8C;transform:translateY(-2px)}.ds-plate:focus-visible{outline:3px solid #E6CD8C;outline-offset:3px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "44px white field, cloth focus ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"Loginni kiriting\">",
+      "css": ".ds-input{width:100%;min-height:44px;padding:10px 12px;background:#fff;border:1px solid #B8C2BB;border-radius:4px;font:400 15px 'Source Sans 3',system-ui,sans-serif;color:#17201C;outline:none;transition:border-color .2s,box-shadow .2s}.ds-input::placeholder{color:#66726C}.ds-input:focus{border-color:#2C4A42;box-shadow:0 0 0 3px rgba(44,74,66,.22)}"
+    },
+    {
+      "name": "Rail Navigation Item",
+      "kind": "nav",
+      "refersTo": "sidebar",
+      "description": "Item on the cloth rail; active state in gilt.",
+      "html": "<div class=\"ds-rail\"><button class=\"ds-nav\">Savol-javob</button><button class=\"ds-nav ds-active\">Hujjatlar</button></div>",
+      "css": ".ds-rail{background:#2C4A42;padding:14px;display:grid;gap:3px;width:230px;border-right:3px double rgba(217,188,114,.55)}.ds-nav{min-height:44px;padding:0 12px;border:0;border-radius:4px;background:transparent;color:#E1EAE5;font:500 15px 'Source Sans 3',system-ui,sans-serif;text-align:left;cursor:pointer;transition:background .2s,color .2s}.ds-nav:hover{background:rgba(255,255,255,.08);color:#fff}.ds-active{background:rgba(217,188,114,.16);color:#E6CD8C;font-weight:600}.ds-nav:focus-visible{outline:2px solid #E6CD8C;outline-offset:2px}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Pill with tinted status pair.",
+      "html": "<span class=\"ds-badge\">Jarayonda</span> <span class=\"ds-badge ds-ok\">Bajarildi</span>",
+      "css": ".ds-badge{display:inline-flex;padding:3px 10px;border-radius:999px;font:600 12.5px 'Source Sans 3',system-ui,sans-serif;background:#EAE9E5;color:#59574F}.ds-ok{background:#E3EEE5;color:#386449}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "White leaf with hairline border.",
+      "html": "<div class=\"ds-card\"><h3>Savol</h3><p>Hujjat matni.</p></div>",
+      "css": ".ds-card{background:#fff;border:1px solid #D5DBD6;border-radius:6px;padding:24px;box-shadow:0 1px 0 rgba(20,36,31,.04);color:#17201C;font:400 15px/1.55 'Source Sans 3',system-ui,sans-serif}.ds-card h3{margin:0 0 12px;font:700 1.1rem/1.3 'Source Sans 3',system-ui,sans-serif;color:#14241F}"
+    },
+    {
+      "name": "Source Card with Ribbon",
+      "kind": "custom",
+      "refersTo": "source-card",
+      "description": "Signature: vermilion swallow-tail ribbon carrying the source number, hanging from the card top.",
+      "html": "<article class=\"ds-source\"><span class=\"ds-ribbon\">1</span><strong>Qonun, 14-modda</strong><p>Tegishli parcha matni.</p></article>",
+      "css": ".ds-source{position:relative;padding:18px 20px 16px 72px;background:#F8FAF8;border:1px solid #D5DBD6;border-radius:4px;color:#17201C;font:400 15px/1.6 'PT Serif',Georgia,serif}.ds-source strong{display:block;margin-bottom:8px;font:700 15.5px 'Source Sans 3',system-ui,sans-serif}.ds-source p{margin:0}.ds-ribbon{position:absolute;top:-1px;left:22px;width:30px;height:56px;padding-top:9px;box-sizing:border-box;text-align:center;background:#C9402F;color:#fff;font:700 14px 'Red Hat Mono',ui-monospace,monospace;clip-path:polygon(0 0,100% 0,100% 100%,50% calc(100% - 11px),0 100%)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Cloth-Bound Statute Volume",
+    "overview": "One world serves two surfaces. The showcase page is the volume opened on a table: spruce cloth cover, gilt double rule, a pocket label like a library book, two paper leaves with a ribbon lying in the gutter. The working app is the same volume on the desk: a cloth rail down the left, cold paper and white leaves for work, and the ribbon reappearing as a bookmark on each source passage. The world lends type, palette, density and one signature move. It does not lend decoration to navigation, forms or tables, which stay standard.\n\nThe palette shipped muted: the contract's first ultramarine was replaced by spruce cloth after the saturated blue proved hard on the eyes. Voice is quiet, bookish, official. Density is working-office: 15px interface text, 17px reading text, 4px corners, hairline borders.",
+    "keyCharacteristics": [
+      "Spruce cloth against cold neutral paper; gilt only as thin rules, marks and the one landing call to action.",
+      "Four voices, four jobs: Bodoni Moda titles, PT Serif for what is read, Source Sans 3 for the interface, Red Hat Mono for data.",
+      "One vermilion device, the ribbon, reserved for \"the law supplied this.\"",
+      "Flat, hairline-bordered leaves; depth only where the book metaphor needs it on the landing page.",
+      "Cloth texture is a faint woven grain, never an image."
+    ],
+    "rules": [
+      { "name": "The One Ribbon Rule", "body": "Vermilion marks source-bearing passages and nothing else. It is not an error color, not a CTA, not decoration.", "section": "colors" },
+      { "name": "The Cloth Not Blue Rule", "body": "The cool accent is green-grey cloth. Reintroducing saturated blue or ultramarine anywhere is drift.", "section": "colors" },
+      { "name": "The Thin Gilt Rule", "body": "Gilt appears as rule, mark or small plate. If it covers more than a button or a rail rule, it is wrong.", "section": "colors" },
+      { "name": "The Four Voices Rule", "body": "Assign type by job (title, read, operate, measure). A new element picks one of the four and never a fifth family.", "section": "typography" },
+      { "name": "The Pinned Optical Size Rule", "body": "Bodoni is always set with optical sizing off and an explicit opsz.", "section": "typography" },
+      { "name": "The Flat Work Surface Rule", "body": "Working screens get no lift on cards, lists or forms; the book's depth belongs to the showcase.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Spruce Cloth (#2C4A42) as the only cool accent and Cold Paper (#EFF1EE) as the ground.",
+      "Do put every source passage behind a vermilion ribbon carrying its number in Red Hat Mono.",
+      "Do set reading text in PT Serif 17px at about 1.68 line-height and keep it under 72ch.",
+      "Do keep controls at 42-44px minimum height with a visible 2px cloth focus ring (gilt-hi on cloth).",
+      "Do use the Bodoni titles with pinned optical size; keep titles to the page title, hero, login and landing sections.",
+      "Do keep motion to transform and opacity with the cubic-bezier(.16,1,.3,1) ease, 0.2-0.35s for states, and honor prefers-reduced-motion.",
+      "Do tint status messages with their paired background; keep numerals tabular."
+    ],
+    "donts": [
+      "Don't bring back saturated ultramarine or any cobalt blue; the shipped system is muted on purpose.",
+      "Don't use vermilion for errors, buttons, links or decoration.",
+      "Don't give working screens card shadows, glass, gradients or rounded-pill buttons; depth is a showcase privilege.",
+      "Don't put Bodoni on controls, tables or long text, and don't add a fifth font family.",
+      "Don't use gilt as a large fill or as text on paper (contrast); it lives on cloth.",
+      "Don't put borders thicker than 1px on cards, or side-stripe accents on list items; the 3px double rule belongs to frames and the rail edge only.",
+      "Don't recreate the contract's retired hex values."
+    ]
+  }
+}

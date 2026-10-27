@@ -8,6 +8,9 @@ ROOT="$(cd "$HERE/../.." && pwd)"
 echo "frontend build (/app/, same-origin /api)..."
 ( cd "$ROOT/frontend" && VITE_API_URL= npx vite build --base=/app/ --outDir "$HERE/site/app" --emptyOutDir >/dev/null )
 
+echo "page..."
+python3 "$HERE/src/assemble.py"
+
 echo "zip..."
 rm -f "$HERE/dalilai-site.zip"
 ( cd "$HERE/site" && zip -qr "$HERE/dalilai-site.zip" . -x ".DS_Store" )

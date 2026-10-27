@@ -20,3 +20,8 @@ backend/artifacts/*
 dissertatsiya/
 skills-lock.json
 *.log
+
+# Impeccable: review captures and generated comps are local working files
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/live/
