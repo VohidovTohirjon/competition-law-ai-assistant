@@ -70,3 +70,7 @@ def test_source_cards_keep_the_official_cyrillic_script():
 def test_misspelt_yurituvchi_is_corrected():
     assert latin_legal_answer("xo‘jalik yo‘rituvchi subyekt") == "xo‘jalik yurituvchi subyekt"
     assert latin_legal_answer("Xo‘jalik Yo'rituvchi") == "Xo‘jalik Yurituvchi"
+
+
+def test_insafsiz_is_corrected_to_the_statute_term():
+    assert latin_legal_answer("Insafsiz raqobat taqiqlanadi") == "Insofsiz raqobat taqiqlanadi"

@@ -462,6 +462,8 @@ GENERATED_TEXT_FIXES = (
     (r"\bxususiy subyekt", "xo‘jalik yurituvchi subyekt"),
     # "yo‘rituvchi" is not a word; the model produces it when it spells "юритувчи" by ear.
     (r"\b(y)o[‘’'`]rituvchi", r"\1urituvchi"),
+    # "insafsiz" is a different word (without conscience); the statute term is "insofsiz".
+    (r"\b(i)nsafsiz", r"\1nsofsiz"),
 )
 
 
