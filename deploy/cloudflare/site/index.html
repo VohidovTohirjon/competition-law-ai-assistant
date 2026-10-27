@@ -66,7 +66,7 @@
           display: grid; place-items: center; font: 700 21px/1 var(--display); }
   .brand b { font-weight: 600; font-size: 16px; letter-spacing: -.005em; }
   .lang { display: flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
-  .lang button { font: 500 12px var(--mono); letter-spacing: .08em; padding: 7px 12px; border: 0;
+  .lang button { font: 500 12px var(--mono); letter-spacing: .08em; padding: 0 14px; min-height: 40px; border: 0;
                  background: transparent; color: var(--muted); cursor: pointer; }
   .lang button[aria-pressed="true"] { background: var(--green); color: #fff; }
 
@@ -208,6 +208,7 @@
     </div>
   </header>
 
+  <main>
   <div class="hero">
     <div>
       <p class="eyebrow"><span lang-uz>Raqobat qo‘mitasi uchun</span><span lang-en>For a competition authority</span></p>
@@ -362,6 +363,8 @@
       </dl>
     </div>
   </section>
+
+  </main>
 
   <dialog class="zoom" id="zoom"><button type="button" id="zoom-close">✕</button><img alt=""></dialog>
 

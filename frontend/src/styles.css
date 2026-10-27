@@ -38,3 +38,61 @@ button:disabled{cursor:not-allowed;opacity:.58}.primary:disabled{cursor:not-allo
 @media(max-width:560px){.shield{display:none}.hero-card h2{font-size:1.55rem}.login-card{padding:9vh 7vw}}
 .offline-home{display:block;margin-top:14px;color:var(--muted);font-size:.9rem;text-decoration:none}.offline-home:hover{text-decoration:underline}
 .match-reason{color:var(--green);font-weight:600}
+
+/* ---- UI/UX pass: readability, touch targets, focus, narrow screens ---------------------- */
+
+/* Keyboard focus is visible on every control, not only on text fields. */
+:where(button,a,summary,[role="button"],select,input,textarea):focus-visible{outline:2px solid var(--green2);outline-offset:2px;border-radius:8px}
+.sidebar :where(button,a):focus-visible{outline-color:#9fe0c3}
+
+/* Secondary text stays readable: nothing below ~12.5px. */
+.list-item span,.dashboard-links button span,.workload-meta,.workload-head span,.task-main span,td span,td small,.section-title span:not(.eyebrow),.prompt-examples,.prompt-examples button{font-size:.8rem}
+.badge,.count{font-size:.78rem}
+.file-icon{font-size:.72rem}
+th{font-size:.74rem}
+.link,.danger-link{font-size:.82rem;padding:6px 8px;min-height:32px;border-radius:6px}
+.link:hover,.danger-link:hover{background:#eef3f0}
+.danger-link:hover{background:#fbeeee}
+.badge.late{background:#f5e8df;color:#865431;font-weight:700}
+
+/* Quiet, informative header: the date is a label, not a button. */
+.date{background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:700;padding:8px 14px;border-radius:999px;font-size:.85rem;white-space:nowrap}
+.hero-card{padding:20px 24px}
+.hero-card h2{font-size:1.65rem}
+
+/* Role/status selects inside tables keep a readable width. */
+td select{min-width:116px;padding:8px 10px}
+.table-wrap td:last-child .inline-actions,td .inline-actions{gap:2px 6px}
+
+/* Multiline fields grow with their content instead of asking the user to drag a handle. */
+textarea{min-height:96px;max-height:60vh;overflow-y:auto}
+@supports (field-sizing: content){textarea{field-sizing:content;resize:none}}
+
+/* Touch targets. */
+.prompt-examples button{min-height:36px;padding:6px 12px}
+.profile button{min-width:40px;min-height:40px}
+@media (pointer:coarse),(max-width:900px){
+  .menu{min-width:44px;min-height:44px;font-size:1.3rem}
+  .prompt-examples button{min-height:44px}
+  .sidebar nav button{min-height:44px}
+  .link,.danger-link{min-height:44px;display:inline-flex;align-items:center}
+  .segmented button,.tabs button{min-height:40px}
+}
+
+/* Narrow screens: two-column pages become one column (documents, history, users, NHH ...). */
+@media (max-width:900px){
+  .two-col,.two-col.history{grid-template-columns:minmax(0,1fr)}
+  .hero-card{padding:16px 18px}
+  .hero-card h2{font-size:1.4rem}
+  .date{align-self:flex-start}
+}
+@media (max-width:560px){
+  main .content{padding-left:12px;padding-right:12px}
+  .card,.result{padding:18px}
+}
+
+/* File rows keep icon and name on one line, however long the name. */
+.list-item:has(.file-icon){flex-wrap:nowrap}
+.list-item:has(.file-icon)>div:not(.file-icon){min-width:0;flex:1}
+/* No empty placeholder card under the list on narrow screens. */
+@media (max-width:900px){.history>section:last-child:not(:has(h2)){display:none}}
