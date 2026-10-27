@@ -127,19 +127,33 @@ async function handleApi(request, env, url) {
   }
 
   if (path === "/api/auth/login") {
+    // The gateway and the backend must read the SAME credentials. A body such as
+    // "username=demo&username=admin" is read as "demo" here (first value) but as "admin"
+    // by the backend form parser (last value), so duplicates and every other shape are
+    // refused, and only the validated pair is forwarded, re-serialised from scratch.
+    const type = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (type !== "application/x-www-form-urlencoded") return json(400, "Noto‘g‘ri so‘rov shakli.");
     const form = new URLSearchParams(new TextDecoder().decode(body));
-    if ((form.get("username") || "").trim().toLowerCase() !== DEMO_USER) {
+    const keys = [...form.keys()];
+    const usernames = form.getAll("username");
+    const passwords = form.getAll("password");
+    if (usernames.length !== 1 || passwords.length !== 1 || keys.length !== 2) {
+      return json(400, "Noto‘g‘ri so‘rov shakli.");
+    }
+    if (usernames[0].trim().toLowerCase() !== DEMO_USER) {
       return json(403, "Namoyish rejimida faqat demo hisob bilan kirish mumkin.");
     }
     if (await overLimit(env, "login", ip, LOGIN_LIMIT_PER_HOUR)) {
       return json(429, "Urinishlar ko‘p. Bir soatdan keyin qayta urinib ko‘ring.");
     }
+    body = new URLSearchParams({ username: DEMO_USER, password: passwords[0] }).toString();
   }
   if (AI_PATHS.some((pattern) => pattern.test(path)) && (await overLimit(env, "ai", ip, AI_LIMIT_PER_HOUR))) {
     return json(429, `Namoyish rejimida soatiga ${AI_LIMIT_PER_HOUR} ta savol mumkin. Keyinroq urinib ko‘ring.`);
   }
 
   const headers = new Headers({ "x-gateway-key": env.GATEWAY_KEY || "" });
+  if (path === "/api/auth/login") headers.set("content-type", "application/x-www-form-urlencoded");
   for (const name of ["authorization", "content-type", "accept"]) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);

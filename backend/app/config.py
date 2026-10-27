@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     # tunnel (they carry CF-Connecting-IP) must present it; direct local requests need
     # nothing. Empty means "no gateway configured", and tunnelled requests are refused.
     gateway_key: str = ""
+    # The only account that may sign in through the public tunnel.
+    gateway_login_user: str = "demo"
 
     @property
     def cors_list(self) -> list[str]:

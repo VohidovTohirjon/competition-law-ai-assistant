@@ -183,6 +183,12 @@ def distinct_article_sources(sources: list[dict]) -> list[dict]:
 def login(form: OAuth2PasswordRequestForm = Depends(), request: Request = None,
           db: Session = Depends(get_db)):
     client = request.client.host if request and request.client else "unknown"
+    if (request is not None and request.headers.get("cf-connecting-ip")
+            and form.username.strip().lower() != get_settings().gateway_login_user):
+        # Defence in depth behind the gateway: through the public tunnel only the demo
+        # account can ever sign in, whatever the request body looked like on the way.
+        raise HTTPException(status.HTTP_403_FORBIDDEN,
+                            "Namoyish rejimida faqat demo hisob bilan kirish mumkin.")
     keys = [f"user:{form.username.strip().lower()}", f"ip:{client}"]
     locked = next((login_throttle.locked_for(key) for key in keys
                    if login_throttle.locked_for(key)), 0)
