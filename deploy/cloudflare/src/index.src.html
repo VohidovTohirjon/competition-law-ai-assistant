@@ -1,21 +1,21 @@
 <!doctype html>
-<html lang="uz">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#2C4A42">
 <title>Raqobat AI Assistant</title>
-<meta name="description" content="Qonunni topadi, dalilini ko‘rsatadi. Raqobat qo‘mitasi uchun AI yordamchi: har bir javob qonun moddasiga tayanadi va chiqishdan oldin tekshiriladi.">
+<meta name="description" content="Finds the law. Shows the proof. An AI assistant for a competition authority: every answer is based on an article of the law and checked before it is shown.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Raqobat AI Assistant">
-<meta property="og:description" content="Qonunni topadi, dalilini ko‘rsatadi. Har bir javob qonun moddasiga tayanadi va chiqishdan oldin tekshiriladi.">
+<meta property="og:description" content="Finds the law. Shows the proof. Every answer is based on an article of the law and checked before it is shown.">
 <meta property="og:url" content="https://dalilai.pages.dev/">
 <meta property="og:image" content="https://dalilai.pages.dev/img/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Raqobat AI Assistant">
-<meta name="twitter:description" content="Finds the law. Shows the proof. A grounded legal AI assistant for a competition authority.">
+<meta name="twitter:description" content="Finds the law. Shows the proof. Every answer is based on an article of the law and checked before it is shown.">
 <meta name="twitter:image" content="https://dalilai.pages.dev/img/og.jpg">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%232C4A42'/%3E%3Crect x='3' y='3' width='26' height='26' fill='none' stroke='%23D9BC72' stroke-width='1.5'/%3E%3Ctext x='16' y='23' font-size='19' text-anchor='middle' fill='%23D9BC72' font-family='Georgia,serif' font-weight='700'%3ER%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,600;6..96,700;6..96,800&family=Source+Sans+3:wght@400;500;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Red+Hat+Mono:wght@500;600&display=swap">
@@ -76,7 +76,7 @@
   /* ---------- title ---------- */
   .cover { padding: 76px 0 0; }
   .cover-row { margin-top: 34px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 40px 56px; align-items: end; }
-  h1 { margin: 0; font: 700 clamp(2.6rem, 6.6vw, 6rem)/1.04 var(--display); font-optical-sizing: none; font-variation-settings: "opsz" 38; letter-spacing: -.005em; text-wrap: balance; }
+  h1 { margin: 0; font: 800 clamp(2.6rem, 6.6vw, 6rem)/1.04 var(--display); font-optical-sizing: none; font-variation-settings: "opsz" 26; letter-spacing: 0; text-wrap: balance; }
   .lead { margin: 0; max-width: 54ch; font: 400 1.35rem/1.6 var(--read); color: #E8EFEA; }
   .actions { margin-top: 36px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; }
   .plate-btn { display: inline-flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 30px; font: 600 17px var(--ui); text-decoration: none;
@@ -145,7 +145,7 @@
   section { padding: 112px 0 0; }
   section + section::before { content: ""; display: block; max-width: 1096px; margin: 0 auto 96px; border-top: 3px double rgba(44,74,66,.35); }
   section.band-end::before { display: none; }
-  h2.title { margin: 0 0 18px; font: 700 clamp(2rem, 4.4vw, 3.2rem)/1.1 var(--display); font-optical-sizing: none; font-variation-settings: "opsz" 30; letter-spacing: 0; text-wrap: balance; color: var(--cloth); }
+  h2.title { margin: 0 0 18px; font: 800 clamp(2rem, 4.4vw, 3.2rem)/1.1 var(--display); font-optical-sizing: none; font-variation-settings: "opsz" 22; letter-spacing: 0; text-wrap: balance; color: var(--cloth); }
   .intro { margin: 0 0 48px; max-width: 60ch; font: 400 1.2rem/1.65 var(--read); color: var(--ink-soft); }
 
   /* four volumes on a shelf */
@@ -200,7 +200,7 @@
 
   .band-end { margin-top: 112px; padding: 96px 0 104px; }
   .band-end h2.title { color: var(--gilt); text-shadow: 0 1px 0 rgba(0,0,0,.4); }
-  .demo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 40px 64px; align-items: end; }
+  .demo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; justify-items: start; }
   .notes { margin: 0; padding: 0; list-style: none; max-width: 56ch; }
   .notes li { margin: 0 0 12px; padding-left: 22px; position: relative; font: 400 18px/1.65 var(--read); color: var(--tint); }
   .notes li::before { content: ""; position: absolute; left: 0; top: .6em; width: 9px; height: 9px; background: var(--gilt); }
@@ -274,20 +274,20 @@
       <div class="cover-row">
       <div>
         <p class="lead">
-          <span lang-uz>Xodim savol beradi, tizim kerakli qonun moddasini topadi va javob yozadi. Javobdagi har bir modda, son va sana qonun matni bilan solishtiriladi, shundan keyingina ekranga chiqadi.</span>
-          <span lang-en>An officer asks a question. The system finds the right article of the law and writes the answer. Every article, number and date in it is checked against the statute text before it reaches the screen.</span>
+          <span lang-uz>Xodim savol beradi. Tizim kerakli moddani topadi, javob yozadi va ko‘rsatishdan oldin undagi har bir modda, son va sanani qonun matni bilan solishtirib chiqadi.</span>
+          <span lang-en>An officer asks a question. The system finds the right article, writes an answer, and checks every article, number and date in it against the law before showing it.</span>
         </p>
         <div class="actions">
           <a class="plate-btn" id="open-app" href="/app/">
-            <span class="t-on"><span lang-uz>Jonli ilovani ochish</span><span lang-en>Open the live app</span></span>
-            <span class="t-off"><span lang-uz>Demo hozir o‘chiq: lavhalarni ko‘ring</span><span lang-en>Demo is off: see the plates</span></span>
+            <span class="t-on"><span lang-uz>Jonli ilovani ochish</span><span lang-en>Try the live demo</span></span>
+            <span class="t-off"><span lang-uz>Demo hozir o‘chiq: ekranlarni ko‘ring</span><span lang-en>Demo is offline: see the screenshots</span></span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
           </a>
-          <a class="link-gilt" href="https://github.com/VohidovTohirjon/competition-law-ai-assistant" rel="noopener"><span lang-uz>Kod: GitHub</span><span lang-en>Source: GitHub</span></a>
+          <a class="link-gilt" href="https://github.com/VohidovTohirjon/competition-law-ai-assistant" rel="noopener"><span lang-uz>Kod GitHub’da</span><span lang-en>Source code on GitHub</span></a>
         </div>
       </div>
       <aside class="pocket" aria-label="Demo">
-        <h2><span lang-uz>Namoyish hisobi</span><span lang-en>Demo account</span></h2>
+        <h2><span lang-uz>Demo uchun kirish</span><span lang-en>Demo sign-in</span></h2>
         <dl>
           <dt>Login</dt><dd>demo</dd>
           <dt><span lang-uz>Parol</span><span lang-en>Password</span></dt><dd>Dalil-Demo-26</dd>
@@ -304,7 +304,7 @@
           <h2 id="l-doc"></h2>
           <p class="src" id="l-src"></p>
           <p class="passage" id="l-passage" lang="uz-Cyrl"></p>
-          <div class="fade"><span lang-uz>matn davom etadi</span><span lang-en>the text continues</span></div>
+          <div class="fade"><span lang-uz>matn davom etadi</span><span lang-en>text continues</span></div>
           <span class="folio" id="l-folio"></span>
         </article>
         <article class="leaf r" aria-label="Javob / Answer" aria-live="polite">
@@ -317,8 +317,8 @@
       </div>
       <div class="block"></div><div class="board"></div>
       <p class="caption">
-        <span lang-uz>Chapda qonunning rasmiy matni, o‘ngda tizimning javobi. Lenta javob tayangan moddani belgilaydi. Uchala javob ham ishlab turgan tizimdan olingan.</span>
-        <span lang-en>The statute’s official text on the left, the system’s answer on the right. The ribbon marks the article the answer rests on. All three answers come from the running system.</span>
+        <span lang-uz>Chapda qonunning rasmiy matni, o‘ngda tizim javobi. Lenta javob tayangan moddani ko‘rsatadi. Uchala javob ham ishlab turgan tizim bergan.</span>
+        <span lang-en>Left: the official text of the law (in Uzbek, Cyrillic script). Right: the system’s answer, in Uzbek. The ribbon marks the article the answer is based on. All three answers were produced by the running system.</span>
       </p>
     </div>
   </div>
@@ -326,10 +326,10 @@
 
   <section id="stages">
     <div class="wrap">
-      <h2 class="title"><span lang-uz>Savol to‘rt jilddan o‘tadi</span><span lang-en>A question passes through four volumes</span></h2>
+      <h2 class="title"><span lang-uz>Har bir savol to‘rt bosqichdan o‘tadi</span><span lang-en>Every question goes through four steps</span></h2>
       <p class="intro">
-        <span lang-uz>Model qonunni yoddan bilmaydi. Har safar unga topilgan modda matni beriladi, yozgani esa o‘sha matn bilan solishtiriladi. Oddiy tizimlar uchinchi jildda to‘xtaydi. Bu yerda to‘rtinchisi bor.</span>
-        <span lang-en>The model does not know the law by heart. Each time it is handed the matching article, and what it writes is compared with that text. Ordinary systems stop at the third volume. This one has a fourth.</span>
+        <span lang-uz>Til modeli qonunni yoddan bilmaydi. Har safar unga tegishli modda matni beriladi, yozgani esa o‘sha matn bilan solishtiriladi. Odatdagi tizimlar uchinchi bosqichda to‘xtaydi. Bu yerda to‘rtinchisi ham bor.</span>
+        <span lang-en>The AI model does not know the law by heart. Each time, it is given the relevant article, and what it writes is checked against that text. Most systems stop at step three. This one adds a fourth.</span>
       </p>
       <div class="shelf-grid">
         <div class="shelf" role="tablist" id="shelf" aria-label="Bosqichlar / Stages"></div>
@@ -340,24 +340,24 @@
 
   <section id="plates">
     <div class="wrap">
-      <h2 class="title"><span lang-uz>Ishlab turgan ilovadan lavhalar</span><span lang-en>Plates from the running application</span></h2>
-      <p class="intro"><span lang-uz>Hammasi haqiqiy ekran. Bosib kattalashtirish mumkin.</span><span lang-en>Every one is a real screen. Click to enlarge.</span></p>
+      <h2 class="title"><span lang-uz>Haqiqiy ilova, ekranma-ekran</span><span lang-en>The real app, screen by screen</span></h2>
+      <p class="intro"><span lang-uz>Bular ishlab turgan tizimdan olingan ekranlar. Kattalashtirish uchun bosing.</span><span lang-en>These are screenshots of the working system (the app itself is in Uzbek). Click one to enlarge.</span></p>
       <div class="plates">
         <div class="fig">
           <figure class="pl"><a href="/img/legal-answer.jpg" data-zoom><img loading="lazy" src="/img/legal-answer.jpg" alt="Huquqiy javob: 13-modda mezonlari, har bir band yonida manba belgisi" width="1800" height="1125"></a></figure>
-          <div class="cap"><em>1-RASM</em><b><span lang-uz>Huquqiy savol</span><span lang-en>Legal question</span></b><span lang-uz>Mezonlar qonundagi tartibida, to‘liq, har biri yonida manba belgisi. Bu savolga model chaqirilmadi: ro‘yxat qonun matnidan so‘zma-so‘z olinadi.</span><span lang-en>The criteria in the statute’s own order, complete, each with a source mark. No model call was needed: the list is taken verbatim from the law.</span></div>
+          <div class="cap"><em><span lang-uz>1-RASM</span><span lang-en>FIG. 1</span></em><b><span lang-uz>Huquqiy savol</span><span lang-en>Legal question</span></b><span lang-uz>Mezonlar qonundagi tartibida, to‘liq, har biri yonida manba belgisi. Bu savolga til modeli kerak bo‘lmadi: ro‘yxat qonun matnidan so‘zma-so‘z ko‘chiriladi.</span><span lang-en>The criteria appear in the same order as in the law, complete, each with a source mark. No AI model was needed here: the list is copied word for word from the law.</span></div>
         </div>
         <div class="fig">
           <figure class="pl"><a href="/img/document-analysis.jpg" data-zoom><img loading="lazy" src="/img/document-analysis.jpg" alt="Hujjat tahlili: murojaatning qisqacha mazmuni" width="1800" height="1125"></a></figure>
-          <div class="cap"><em>2-RASM</em><b><span lang-uz>Hujjat tahlili</span><span lang-en>Document analysis</span></b><span lang-uz>Murojaat yuklanadi, tizim mazmunini, asosiy bandlarini va bir-biriga zid joylarini chiqaradi. Har bir fakt yonida u olingan parcha raqami turadi.</span><span lang-en>Upload a complaint and get its summary, key points and contradictions. Every fact carries the number of the passage it came from.</span></div>
+          <div class="cap"><em><span lang-uz>2-RASM</span><span lang-en>FIG. 2</span></em><b><span lang-uz>Hujjatni tahlil qilish</span><span lang-en>Analyse a document</span></b><span lang-uz>Murojaat yuklanadi, tizim uning qisqacha mazmunini, asosiy bandlarini va bir-biriga zid joylarini chiqaradi. Har bir fakt yonida u olingan parcha raqami turadi.</span><span lang-en>Upload a complaint and get a summary, the key points and any contradictions. Every fact is tagged with the passage it came from.</span></div>
         </div>
         <div class="fig">
           <figure class="pl"><a href="/img/response-letter.jpg" data-zoom><img loading="lazy" src="/img/response-letter.jpg" alt="Javob xati loyihasi" width="1800" height="1125"></a></figure>
-          <div class="cap"><em>3-RASM</em><b><span lang-uz>Javob xati</span><span lang-en>Response letter</span></b><span lang-uz>Murojaat va tegishli moddalar asosida rasmiy xat loyihasi: mavzu, mazmun, huquqiy asos, imzo. Word fayl sifatida, tashkilot blankasi bilan yuklab olinadi.</span><span lang-en>An official reply drafted from the complaint and the matching articles: subject, summary, legal basis, signature. Exports to Word on the organisation’s letterhead.</span></div>
+          <div class="cap"><em><span lang-uz>3-RASM</span><span lang-en>FIG. 3</span></em><b><span lang-uz>Javob xatini tayyorlash</span><span lang-en>Draft a reply letter</span></b><span lang-uz>Murojaat va tegishli moddalar asosida rasmiy xat loyihasi: mavzu, mazmun, huquqiy asos, imzo. Word fayl sifatida, tashkilot blankasi bilan yuklab olinadi.</span><span lang-en>An official reply is drafted from the complaint and the relevant articles: subject, summary, legal basis, signature. Download it as a Word file on the organisation’s letterhead.</span></div>
         </div>
         <div class="fig">
           <figure class="pl"><a href="/img/dashboard.jpg" data-zoom><img loading="lazy" src="/img/dashboard.jpg" alt="Rahbar paneli" width="1800" height="1125"></a></figure>
-          <div class="cap"><em>4-RASM</em><b><span lang-uz>Rahbar paneli</span><span lang-en>Manager dashboard</span></b><span lang-uz>Hujjatlar, topshiriqlar, kechikishlar va xodimlar yuklamasi bir ekranda. Bu javoblar bazadan hisoblanadi, model ishlatilmaydi.</span><span lang-en>Documents, tasks, overdue items and staff workload on one screen. These answers are computed from the database; no model is used.</span></div>
+          <div class="cap"><em><span lang-uz>4-RASM</span><span lang-en>FIG. 4</span></em><b><span lang-uz>Rahbar uchun umumiy ko‘rinish</span><span lang-en>Manager overview</span></b><span lang-uz>Hujjatlar, topshiriqlar, kechikishlar va har bir xodimning yuklamasi bir ekranda. Bu raqamlar bazadan hisoblanadi, til modeli ishtirok etmaydi.</span><span lang-en>Documents, tasks, overdue items and each officer’s workload on one screen. These figures are calculated from the database, with no AI model involved.</span></div>
         </div>
       </div>
     </div>
@@ -365,27 +365,27 @@
 
   <section id="rules">
     <div class="wrap">
-      <h2 class="title"><span lang-uz>Tizimning o‘z qoidalari</span><span lang-en>The system’s own articles</span></h2>
-      <p class="intro"><span lang-uz>Qonunni o‘qiydigan tizim o‘zi ham qoidaga bo‘ysunadi.</span><span lang-en>A system that reads the law is bound by rules of its own.</span></p>
+      <h2 class="title"><span lang-uz>Tizim rioya qiladigan to‘rt qoida</span><span lang-en>Four rules the system follows</span></h2>
+      <p class="intro"><span lang-uz>Qonunni o‘qiydigan tizim o‘zi ham qoidaga bo‘ysunishi kerak.</span><span lang-en>A system that reads the law has to follow rules of its own.</span></p>
       <div class="articles">
-        <div class="art"><h3><span lang-uz>1-modda. Manbasiz javob yo‘q</span><span lang-en>Article 1. No source, no answer</span></h3><p><span lang-uz>Mos modda topilmasa, tizim shuni aytadi. Taxmin qilib yozmaydi.</span><span lang-en>If no article matches, the system says so instead of guessing.</span></p></div>
-        <div class="art"><h3><span lang-uz>2-modda. Uydirma ko‘rsatilmaydi</span><span lang-en>Article 2. Inventions are not shown</span></h3><p><span lang-uz>Model qonunda yo‘q modda, band, son yoki sana yozsa, uning matni tashlanadi va qonunning asl parchasi chiqadi.</span><span lang-en>If the model writes an article, clause, number or date the law does not contain, its text is dropped and the statute’s own passage is shown.</span></p></div>
-        <div class="art"><h3><span lang-uz>3-modda. Maxfiy hujjat tashqariga chiqmaydi</span><span lang-en>Article 3. Confidential files stay in</span></h3><p><span lang-uz>Qidiruv modeli o‘z serverda ishlaydi. Maxfiy hujjat tashqi AI xizmatiga yuborilmaydi.</span><span lang-en>The search model runs on our own server. A confidential file is never sent to an outside AI service.</span></p></div>
-        <div class="art"><h3><span lang-uz>4-modda. Har bir amal yoziladi</span><span lang-en>Article 4. Every action is logged</span></h3><p><span lang-uz>Administrator, rahbar va xodimning ruxsatlari alohida, har bir amal audit jurnaliga tushadi.</span><span lang-en>Administrator, manager and officer have separate permissions, and every action lands in the audit log.</span></p></div>
+        <div class="art"><h3><span lang-uz>1-qoida. Manbasiz javob yo‘q</span><span lang-en>Rule 1. No source, no answer</span></h3><p><span lang-uz>Mos modda topilmasa, tizim shuni aytadi. Taxmin qilib yozmaydi.</span><span lang-en>If no article fits the question, the system says so instead of guessing.</span></p></div>
+        <div class="art"><h3><span lang-uz>2-qoida. Hech narsa o‘ylab topilmaydi</span><span lang-en>Rule 2. Nothing is made up</span></h3><p><span lang-uz>Model qonunda yo‘q modda, band, son yoki sana yozsa, uning matni tashlanadi va o‘rniga qonunning asl parchasi ko‘rsatiladi.</span><span lang-en>If the model cites an article, clause, number or date that is not in the law, its text is discarded and the law’s own passage is shown instead.</span></p></div>
+        <div class="art"><h3><span lang-uz>3-qoida. Maxfiy hujjat tashqariga chiqmaydi</span><span lang-en>Rule 3. Confidential files stay private</span></h3><p><span lang-uz>Qidiruv modeli o‘z serverda ishlaydi. Maxfiy hujjat tashqi AI xizmatiga yuborilmaydi.</span><span lang-en>The search model runs on our own server. A confidential file is never sent to an outside AI service.</span></p></div>
+        <div class="art"><h3><span lang-uz>4-qoida. Har bir amal yoziladi</span><span lang-en>Rule 4. Every action is recorded</span></h3><p><span lang-uz>Administrator, rahbar va xodimning ruxsatlari alohida, har bir amal audit jurnaliga yoziladi.</span><span lang-en>Administrators, managers and officers have different permissions, and every action is written to an audit log.</span></p></div>
       </div>
     </div>
   </section>
 
   <section id="colophon">
     <div class="wrap">
-      <h2 class="title"><span lang-uz>Kolofon</span><span lang-en>Colophon</span></h2>
+      <h2 class="title"><span lang-uz>Raqamlarda</span><span lang-en>By the numbers</span></h2>
       <ul class="colophon">
-        <li><span lang-uz>Indekslangan moddalar</span><span lang-en>Articles indexed</span><b>49</b></li>
-        <li><span lang-uz>Vektorga aylantirilgan parchalar</span><span lang-en>Passages turned into vectors</span><b>115</b></li>
-        <li><span lang-uz>Modelsiz javob vaqti</span><span lang-en>Answers without a model</span><b>0,02 s</b></li>
+        <li><span lang-uz>Qonundagi moddalar</span><span lang-en>Articles in the law</span><b>49</b></li>
+        <li><span lang-uz>Qidiriladigan matn parchalari</span><span lang-en>Searchable pieces of text</span><b>115</b></li>
+        <li><span lang-uz>Model kerak bo‘lmagan javob vaqti</span><span lang-en>Answer time when no AI model is needed</span><b><span lang-uz>0,02 s</span><span lang-en>0.02 s</span></b></li>
         <li><span lang-uz>Avtomatik testlar, hammasi o‘tadi</span><span lang-en>Automated tests, all passing</span><b>__TESTS__</b></li>
       </ul>
-      <p class="intro" style="margin-top:30px;margin-bottom:0"><span lang-uz>FastAPI, React, PostgreSQL + pgvector, BAAI/bge-m3, gpt-oss-120b, vLLM, Docker.</span><span lang-en>FastAPI, React, PostgreSQL + pgvector, BAAI/bge-m3, gpt-oss-120b, vLLM, Docker.</span></p>
+      <p class="intro" style="margin-top:30px;margin-bottom:0"><span lang-uz>Texnologiyalar: FastAPI, React, PostgreSQL + pgvector, BAAI/bge-m3, gpt‑oss‑120b, vLLM, Docker.</span><span lang-en>Built with FastAPI, React, PostgreSQL + pgvector, BAAI/bge-m3, gpt‑oss‑120b, vLLM, Docker.</span></p>
     </div>
   </section>
 
@@ -393,11 +393,11 @@
     <div class="wrap">
       <div class="demo">
         <div>
-          <h2 class="title"><span lang-uz>Jonli namoyish</span><span lang-en>Live demonstration</span></h2>
+          <h2 class="title"><span lang-uz>Jonli demo haqida</span><span lang-en>About the live demo</span></h2>
           <ul class="notes">
-            <li><span lang-uz>Ilova muallifning o‘z kompyuterida ishlaydi va Cloudflare orqali ulanadi. Kompyuter o‘chiq bo‘lsa, shu sahifa baribir ochiq.</span><span lang-en>The app runs on the author’s own computer, connected through Cloudflare. When it is off, this page stays up.</span></li>
-            <li><span lang-uz>Namoyish hisobi faqat o‘qiydi va savol beradi. Yuklash, sozlash va boshqarish yopiq.</span><span lang-en>The demo account can read and ask. Uploads, settings and administration are closed.</span></li>
-            <li><span lang-uz>Soatiga 30 tagacha savol. Bazada ochiq qonun va uydirma namunaviy hujjatlar bor.</span><span lang-en>Up to 30 questions an hour. The database holds a public law and fictional sample documents.</span></li>
+            <li><span lang-uz>Ilova muallifning o‘z kompyuterida ishlaydi va Cloudflare orqali ulanadi. Kompyuter o‘chiq bo‘lsa, bu sahifa ochiq qoladi, demo esa o‘chiq deb ko‘rsatiladi.</span><span lang-en>The app runs on the author’s own computer and is reached through Cloudflare. When that computer is off, this page stays online and the demo shows as offline.</span></li>
+            <li><span lang-uz>Demo hisobi ma’lumotni ko‘ra oladi va savol bera oladi. Fayl yuklash, sozlash va boshqarish o‘chirilgan.</span><span lang-en>The demo account can browse and ask questions. Uploading, settings and administration are disabled.</span></li>
+            <li><span lang-uz>Soatiga 30 tagacha savol. Bazada bitta ochiq qonun va to‘qib chiqarilgan namunaviy hujjatlar bor.</span><span lang-en>Up to 30 questions per hour. The database contains one public law and made-up sample documents.</span></li>
           </ul>
         </div>
         <a class="plate-btn" id="open-app-2" href="/app/">
@@ -425,7 +425,7 @@
   var root = document.documentElement;
   var saved = null;
   try { saved = localStorage.getItem("dalil_lang"); } catch (e) {}
-  var lang = saved || ((navigator.language || "uz").slice(0, 2) === "en" ? "en" : "uz");
+  var lang = saved === "uz" ? "uz" : "en";
   var statusState = "wait";
 
   function esc(s) { return s.replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
@@ -447,12 +447,12 @@
 
   /* ---- the open volume ---- */
   var data = JSON.parse(document.getElementById("volume-data").textContent);
-  var tabsEl = document.getElementById("vtabs"), ribbon = document.getElementById("ribbon");
+  var tabsEl = document.getElementById("vtabs"), ribbon = document.getElementById("ribbon"), curTab = 0;
   data.forEach(function (d, i) {
     var b = document.createElement("button");
     b.type = "button"; b.className = "tab"; b.setAttribute("role", "tab"); b.id = "tab-" + i;
     b.setAttribute("aria-selected", i === 0 ? "true" : "false");
-    b.textContent = d.label; b.title = d.tag; b.setAttribute("aria-label", d.label + " · " + d.tag);
+    b.dataset.label = d.label; b.title = d.tag;
     b.addEventListener("click", function () { show(i); });
     b.addEventListener("keydown", function (e) {
       if (e.key === "ArrowRight") show((i + 1) % data.length, true);
@@ -460,35 +460,43 @@
     });
     tabsEl.appendChild(b);
   });
+  function paintTabs() {
+    [].forEach.call(tabsEl.children, function (t) {
+      var l = t.dataset.label.replace(/^(\d+)-modda$/, lang === "en" ? "Article $1" : "$1-modda");
+      t.textContent = l; t.setAttribute("aria-label", l + " · " + t.title);
+    });
+  }
   function show(i, focus) {
     var d = data[i];
     [].forEach.call(tabsEl.children, function (t, n) { t.setAttribute("aria-selected", String(n === i)); t.tabIndex = n === i ? 0 : -1; });
     if (focus) tabsEl.children[i].focus();
-    document.getElementById("l-doc").textContent = d.doc;
-    document.getElementById("l-src").textContent = d.label + " · " + d.official;
+    curTab = i;
+    var en = lang === "en", art = d.label.replace(/^(\d+)-modda$/, en ? "Article $1" : "$1-modda");
+    document.getElementById("l-doc").textContent = en ? "Law “On Competition” (" + d.official + ")" : d.doc;
+    document.getElementById("l-src").textContent = art + " · " + d.official;
     document.getElementById("l-passage").textContent = d.passage;
-    document.getElementById("l-folio").textContent = d.label;
+    document.getElementById("l-folio").textContent = art;
     document.getElementById("r-q").textContent = d.q;
     document.getElementById("r-answer").innerHTML = md(d.answer);
-    document.getElementById("r-folio").textContent = "[1] " + d.label;
+    document.getElementById("r-folio").textContent = "[1] " + art;
     ribbon.classList.remove("swing"); void ribbon.offsetWidth; ribbon.classList.add("swing");
   }
   show(0);
 
   /* ---- shelf of four volumes ---- */
   var stages = [
-    { no: "I", nm: { uz: "Yo‘naltirish", en: "Routing" }, c: "#6A4A30", file: "ai_agent.py",
+    { no: "I", nm: { uz: "Saralash", en: "Triage" }, c: "#6A4A30", file: "ai_agent.py",
       t: { uz: "Savol qaysi yo‘lga ketishini hal qiladi", en: "Decides where the question goes" },
-      p: { uz: "Ba’zi savollarga model umuman kerak emas: moddadagi ro‘yxat qonun matnidan so‘zma-so‘z olinadi, moddalar soni bazadan sanaladi, rahbar ko‘rsatkichlari hisoblanadi. Qolgani qidiruvga ketadi.", en: "Some questions need no model: a list in an article is taken verbatim from the law, the number of articles is counted in the database, manager figures are computed. The rest goes to search." } },
+      p: { uz: "Ba’zi savollarga til modeli umuman kerak emas: moddadagi ro‘yxat qonun matnidan so‘zma-so‘z olinadi, moddalar soni bazadan sanaladi, rahbar ko‘rsatkichlari hisoblanadi. Qolgan savollar qidiruvga o‘tadi.", en: "Some questions do not need an AI model at all: a list inside an article is copied word for word from the law, the number of articles is counted in the database, manager figures are calculated. Everything else moves on to search." } },
     { no: "II", nm: { uz: "Qidiruv", en: "Search" }, c: "#2F4F5A", file: "rag.py",
       t: { uz: "Kerakli moddani topadi", en: "Finds the right article" },
-      p: { uz: "Matnni ma’no bo‘yicha qidiradi (bge-m3 va pgvector): 115 parchadan 60 tasini oladi, kalit so‘z va sarlavha mosligi bilan saralab 3 tasini qoldiradi. Savol lotinda, qonun kirillda bo‘lsa ham topadi.", en: "Searches by meaning (bge-m3 and pgvector): takes 60 of 115 passages, ranks them by keywords and headings, keeps 3. It finds the article even when the question is in Latin and the law in Cyrillic." } },
-    { no: "III", nm: { uz: "Yozish", en: "Writing" }, c: "#7C2C34", file: "llm.py",
+      p: { uz: "Matnni ma’no bo‘yicha qidiradi (bge-m3 va pgvector): 115 parchadan 60 tasini oladi, kalit so‘z va sarlavha mosligi bo‘yicha saralab, eng yaxshi 3 tasini qoldiradi. Savol lotinda, qonun kirillda bo‘lsa ham topadi.", en: "Searches by meaning (bge-m3 and pgvector): picks 60 of the 115 pieces of text, ranks them by keywords and headings, and keeps the best 3. It works even when the question is written in Latin script and the law in Cyrillic." } },
+    { no: "III", nm: { uz: "Yozish", en: "Write" }, c: "#7C2C34", file: "llm.py",
       t: { uz: "Faqat berilgan matndan yozadi", en: "Writes only from the text it is given" },
-      p: { uz: "Til modeli (gpt-oss-120b) oldidagi modda matnidan javob tuzadi, yoddan emas. Manba raqamini model emas, tizim qo‘yadi, shuning uchun u o‘ylab topa olmaydi.", en: "The language model (gpt-oss-120b) writes from the article in front of it, not from memory. The system, not the model, assigns the source numbers, so it cannot invent them." } },
-    { no: "IV", nm: { uz: "Tekshirish", en: "Verification" }, c: "#2C4A42", file: "grounding.py", tail: true,
+      p: { uz: "Til modeli (gpt-oss-120b) oldiga qo‘yilgan modda matnidan javob tuzadi, yoddan emas. Manba raqamini model emas, tizim qo‘yadi, shuning uchun u o‘ylab topa olmaydi.", en: "The language model (gpt-oss-120b) writes from the article placed in front of it, not from memory. The system, not the model, assigns the source numbers, so the model cannot invent them." } },
+    { no: "IV", nm: { uz: "Tekshirish", en: "Check" }, c: "#2C4A42", file: "grounding.py", tail: true,
       t: { uz: "Yozilganini qonun bilan solishtiradi", en: "Checks what was written against the law" },
-      p: { uz: "Modda, band, son, sana va iqtibos qonun matnida bormi, har biri tekshiriladi. Tasdiqlanmasa model matni ko‘rsatilmaydi, o‘rniga qonunning asl parchasi chiqadi. Oddiy tizimlarda bu jild yo‘q.", en: "Every article, clause, number, date and quote is looked up in the law. If it is not there, the model’s text is not shown; the statute’s own passage is shown instead. Ordinary systems do not have this volume." } }
+      p: { uz: "Modda, band, son, sana va iqtibos qonun matnida bormi, har biri tekshiriladi. Biror biri topilmasa, model matni ko‘rsatilmaydi, o‘rniga qonunning asl parchasi chiqadi. Ko‘p tizimlarda bu bosqich yo‘q.", en: "Every article, clause, number, date and quote is looked up in the law. If anything is missing, the model’s text is not shown; the law’s own passage is shown instead. Most systems skip this step." } }
   ];
   var shelf = document.getElementById("shelf"), leaf = document.getElementById("readleaf"), cur = 3;
   stages.forEach(function (s, i) {
@@ -520,7 +528,7 @@
     lang = v; root.lang = v;
     [].forEach.call(document.querySelectorAll(".lang button"), function (b) { b.setAttribute("aria-pressed", String(b.dataset.set === v)); });
     try { localStorage.setItem("dalil_lang", v); } catch (e) {}
-    paintShelf(); paintStatus(statusState);
+    paintShelf(); paintStatus(statusState); paintTabs(); if (typeof show === "function" && data) { var keep = curTab; show(keep); }
   }
   [].forEach.call(document.querySelectorAll(".lang button"), function (b) { b.addEventListener("click", function () { setLang(b.dataset.set); }); });
 
