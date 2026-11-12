@@ -43,7 +43,7 @@ PRIORITY_LABEL = {"shoshilinch": "shoshilinch", "yuqori": "yuqori",
 
 
 def is_analytics_question(question: str) -> bool:
-    """True for an operational question about the committee's own workload."""
+    """True for an operational question about the organisation's own workload."""
     return bool(ANALYTICS_RE.search(question.translate(APOSTROPHES).lower()))
 
 
@@ -97,7 +97,7 @@ def analytics_answer(db: Session, user: User) -> tuple[str, list[dict]]:
         select(func.count(NhhDocument.id)).where(NhhDocument.is_active.is_(True))
     ) or 0
 
-    scope = "Sizga biriktirilgan" if personal else "Qo‘mita bo‘yicha"
+    scope = "Sizga biriktirilgan" if personal else "Tashkilot bo‘yicha"
     lines = [f"## {scope} holat — {_day(now)}", ""]
 
     lines.append("**Mavjud muammolar**")

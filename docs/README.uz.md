@@ -1,6 +1,6 @@
 # Raqobat AI Assistant
 
-Raqobat qo‘mitasi rahbariyati va xodimlari uchun sun’iy intellektga asoslangan agent-yordamchi: hujjatlarni tahlil qiladi, normativ-huquqiy hujjatlar (NHH) bazasidan huquqiy asosni **manbasi bilan** topadi, rasmiy xat va ma’lumotnoma loyihalarini tayyorlaydi va rahbar uchun boshqaruv tahlilini beradi. Interfeys tili — o‘zbek (lotin).
+Raqobat huquqi bilan ishlaydigan mutaxassislar uchun sun’iy intellektga asoslangan agent-yordamchi (mustaqil shaxsiy loyiha, hech bir davlat organiga tegishli emas): hujjatlarni tahlil qiladi, normativ-huquqiy hujjatlar (NHH) bazasidan huquqiy asosni **manbasi bilan** topadi, rasmiy xat va ma’lumotnoma loyihalarini tayyorlaydi va rahbar uchun boshqaruv tahlilini beradi. Interfeys tili — o‘zbek (lotin).
 
 > **Asosiy tamoyil:** tizim huquqiy javobni shunchaki «to‘qib» bermaydi. Har bir huquqiy javob «qaysi hujjatga asoslanib berildi?» degan savolga hujjat nomi, modda raqami, rasmiy havola va foydalanilgan parcha bilan javob beradi. Dalil bilan tasdiqlanmagan matn foydalanuvchiga chiqarilmaydi.
 

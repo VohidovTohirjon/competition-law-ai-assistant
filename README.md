@@ -1,6 +1,7 @@
 # Competition Law AI Assistant (Raqobat AI Assistant)
 
-**A grounded, source-cited legal AI assistant for Uzbekistan's Competition Committee.**
+**A grounded, source-cited legal AI assistant for Uzbek competition law.**
+An independent solo project. It is not affiliated with, commissioned by or deployed at any government body.
 It answers legal questions from the official statute base with article-level citations, analyses uploaded case documents, drafts official response letters as DOCX, and gives managers an operational dashboard — in Uzbek, without hallucinating law.
 
 > 🇺🇿 O‘zbekcha to‘liq hujjat: **[docs/README.uz.md](docs/README.uz.md)**

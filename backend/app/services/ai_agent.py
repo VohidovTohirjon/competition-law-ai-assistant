@@ -119,8 +119,8 @@ def _friendly_failure(reason: str, subject: str = "") -> str:
 
 
 GENERAL_SYSTEM_PROMPT = (
-    "Siz O‘zbekiston Respublikasi Raqobatni rivojlantirish va iste’molchilar huquqlarini "
-    "himoya qilish qo‘mitasining ichki AI yordamchisisiz. Sohangiz: raqobat huquqi, "
+    "Siz raqobat huquqi bo‘yicha ishlaydigan tashkilotning "
+    "ichki AI yordamchisisiz. Sohangiz: raqobat huquqi, "
     "antimonopol nazorat, murojaatlar bilan ishlash, rasmiy hujjatlar tayyorlash, tahlil va "
     "boshqaruv masalalari. Xodim yoki rahbarga tajribali mutaxassis kabi to‘liq, aniq va "
     "amaliy javob bering: avval savolga to‘g‘ridan-to‘g‘ri javob, keyin zarur tushuntirish, "
@@ -136,8 +136,8 @@ GENERAL_SYSTEM_PROMPT = (
 # prompt it invented a law title, an article number and a fine range. Here it may
 # explain the concept, and nothing else.
 GENERAL_LEGAL_SYSTEM_PROMPT = (
-    "Siz O‘zbekiston Respublikasi Raqobatni rivojlantirish va iste’molchilar huquqlarini "
-    "himoya qilish qo‘mitasining ichki AI yordamchisisiz. Foydalanuvchi «Umumiy savol» "
+    "Siz raqobat huquqi bo‘yicha ishlaydigan tashkilotning "
+    "ichki AI yordamchisisiz. Foydalanuvchi «Umumiy savol» "
     "rejimini tanlagan, shuning uchun sizda normativ-huquqiy hujjatlar bazasi YO‘Q va "
     "hech qanday tekshirilgan manba berilmagan.\n"
     "QAT’IY TAQIQ: qonun yoki hujjat nomini yozmang; modda, band yoki hujjat raqamini "
@@ -177,7 +177,7 @@ GENERAL_LEGAL_WARNING = (
 )
 
 LEGAL_SYSTEM_PROMPT = (
-    "Siz Raqobat qo‘mitasining huquqiy yordamchisisiz. Faqat TEKSHIRILGAN MANBALAR bo‘limidagi "
+    "Siz raqobat huquqi bo‘yicha huquqiy yordamchisiz. Faqat TEKSHIRILGAN MANBALAR bo‘limidagi "
     "parchalarga tayanib, o‘zbek lotin alifbosida to‘liq, tushunarli va professional javob "
     "yozing. Tuzilma: (1) savolga to‘g‘ridan-to‘g‘ri javob; (2) huquqiy asos — qaysi modda nima "
     "deydi, zarur bo‘lsa ro‘yxat shaklida; (3) amaliy izoh yoki chegara (agar manbada bo‘lsa). "

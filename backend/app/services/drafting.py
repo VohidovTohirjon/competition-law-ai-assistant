@@ -116,10 +116,10 @@ def _fallback_structure(document_chunks: list[Chunk], legal_chunks: list[Chunk])
         and "haqiqiy murojaat emas" not in s.lower()
         and " | " not in s
     ]
-    summary = ["Qo‘mitaga kelib tushgan murojaat ko‘rib chiqildi."]
+    summary = ["Tashkilotga kelib tushgan murojaat ko‘rib chiqildi."]
     for sentence in candidates[:3]:
         # Headings and title fragments are not statements; and the appellant writes in
-        # the first person, which must never appear as the Committee's own voice.
+        # the first person, which must never appear as the organisation's own voice.
         if len(sentence) < 60 and not sentence.rstrip().endswith((".", "!", "?")):
             continue
         reported = re.sub(r"\b(\w+?)(?:amiz|aymiz|ymiz|miz)\b", r"\1gani bildirilgan", sentence)

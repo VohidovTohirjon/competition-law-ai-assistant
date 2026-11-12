@@ -45,7 +45,7 @@ Har bir bo‘limda: ekranda nima ko‘rinadi, siz nima bosasiz/yozasiz va nima d
 **Ekranda:** login sahifasi → `admin` bilan kirasiz → Administrator paneli ochiladi.
 Chap menyuni bir marta ko‘rsating.
 
-> «Bu — Raqobat qo‘mitasi xodimlari uchun ichki sun’iy intellekt yordamchisi.
+> «Bu — raqobat huquqi bilan ishlaydigan mutaxassislar uchun sun’iy intellekt yordamchisi.
 > U hujjatlarni tahlil qiladi, qonundan huquqiy asos topadi va rasmiy xat loyihasini
 > tayyorlaydi. Bitta tamoyil ustiga qurilgan: har bir huquqiy javob o‘z manbasini
 > ko‘rsatadi.»
@@ -114,7 +114,7 @@ bosing va yuklab olingan faylni oching (Word oynasini 3–4 soniya ko‘rsating)
 > «Endi eng amaliy qismi — javob xati. Tizim murojaatni o‘qiydi, qonundan tegishli
 > normani topadi va rasmiy xat loyihasini tuzadi.
 > E’tibor bering: xulosa qat’iy emas — «tasdiqlangan taqdirda» deb yozilgan, chunki
-> qo‘mita hali tekshiruv o‘tkazmagan.
+> tashkilot hali tekshiruv o‘tkazmagan.
 > Natija haqiqiy Word hujjati: tashkilot rekvizitlari, chiqish raqami, sana va imzo
 > joyi bilan. Rekvizitlar to‘liq bo‘lmasa, tizim rasmiy eksportni ochmaydi —
 > faqat qoralama beradi.»
